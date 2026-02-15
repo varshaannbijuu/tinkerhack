@@ -117,11 +117,23 @@ npm run dev
 
 ### Screenshots
 
-**Screenshot 1 — Learning style quiz interface**
+### Learning Style Quiz
+![Quiz](Screenshot%202026-02-15%20095612.png)
 
-**Screenshot 2 — Adopt your AI study pet**
+### Pet Adoption Screen
+![Pet](Screenshot%202026-02-15%20095654.png)
 
-**Screenshot 3 — Active study session with personalized content**
+### Study Session
+![Session](Screenshot%202026-02-15%20095722.png)
+
+### Focus Tracking
+![Focus](Screenshot%202026-02-15%20095736.png)
+
+### Personalized Content
+![Content](Screenshot%202026-02-15%20095753.png)
+
+### Dashboard
+![Dashboard](Screenshot%202026-02-15%20095809.png)
 
 ---
 
