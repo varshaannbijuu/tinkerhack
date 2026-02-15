@@ -136,7 +136,7 @@ npm run dev
 
 ---
 
-## Diagrams
+## System Architecture
 
 ![System Architecture](Screenshot_2026-02-15_12-57-10.png)
 
