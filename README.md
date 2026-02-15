@@ -138,17 +138,8 @@ npm run dev
 
 ## Diagrams
 
-### System Architecture
+![System Architecture](Screenshot_2026-02-15_12-57-10.png)
 
-```
-User → Frontend (Svelte)
-        ↓
-     Backend API (Express)
-        ↓
-   MongoDB Database
-        ↓
-     OpenAI API
-```
 
 The frontend collects user input and files, backend processes requests, stores user data, and uses AI services to generate personalized content.
 
