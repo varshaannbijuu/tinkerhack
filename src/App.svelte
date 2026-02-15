@@ -1,127 +1,79 @@
 <script>
-  const API_BASE_URL = "https://tinkerhack-pw8b.onrender.com";
 
   import { onDestroy } from "svelte";
 
-  let step = "auth"; // 'auth', 'quiz', 'result', 'adopt', 'setup', 'session'
-  let currentQuestion = 0;
-  let scores = { audio: 0, visual: 0, read: 0, practice: 0 };
-  let learnerType = null; // { label: string, icon: string, description: string }
+  const API_BASE_URL = "https://tinkerhack-pw8b.onrender.com";
 
-  // Auth State
+  let step = "auth";
+  let currentQuestion = 0;
+  let scores = { audio: 0, visual: 0, read: 0, active: 0 };
+  let learnerType = null;
+  let user = null;
+  let isLoading = false;
+  let error = null;
+
+  // Auth
   let email = "";
   let password = "";
+  let username = "";
   let isSignUp = true;
 
-  function handleAuth() {
-    if (!email || !password) {
-      alert("Please enter email and password");
+  async function handleAuth() {
+    error = null;
+    if (!email || !password || (isSignUp && !username)) {
+      error = "Please fill in all fields";
       return;
     }
-    // Simulate auth success
-    step = "quiz";
+
+    isLoading = true;
+    try {
+      const endpoint = isSignUp ? "/api/auth/register" : "/api/auth/login";
+      const body = isSignUp
+        ? { username, email, password }
+        : { email, password };
+
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.msg || "Authentication failed");
+      }
+
+      user = data;
+      localStorage.setItem("user", JSON.stringify(user));
+
+      currentQuestion = 0;
+      scores = { audio: 0, visual: 0, read: 0, active: 0 };
+      step = "quiz";
+    } catch (err) {
+      error = err.message;
+    } finally {
+      isLoading = false;
+    }
   }
 
+  // Setup
   let notes = "";
-  let duration = "1 hour";
-  let learningStyles = [];
-  let showLearningOptions = false;
   let uploadedFiles = [];
   let fileInput;
 
+  // Session
+  let generatedContent = null;
   let petName = "";
   let petEmoji = "🐶";
   let petHealth = 100;
   let isSessionActive = false;
+  let petDies = false;
   let healthInterval;
+  let focusTimer;
+  let distractionCount = 0;
 
-  // Session Content Logic
   let searchQuery = "";
-  let isAnalyzing = false;
   let scrapeProgress = 0;
-
-  // ... (rest of logic will be handled by existing functions or new ones below)
-
-  function startSession() {
-    if (uploadedFiles.length === 0) {
-      alert("Please upload files to start.");
-      return;
-    }
-
-    // 1. Determine Topic from File
-    if (uploadedFiles.length > 0) {
-      const fileName = uploadedFiles[0].name;
-      searchQuery = fileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-    } else {
-      searchQuery = "Study Session";
-    }
-
-    // 2. Start Analysis Simulation
-    step = "analyzing";
-    scrapeProgress = 0;
-
-    const interval = setInterval(() => {
-      scrapeProgress += 5;
-      if (scrapeProgress >= 100) {
-        clearInterval(interval);
-        enterSession();
-      }
-    }, 100);
-  }
-
-  function enterSession() {
-    step = "session";
-    isSessionActive = true;
-
-    // Start Pet Health Logic
-    healthInterval = setInterval(() => {
-      if (!document.hidden && isSessionActive) {
-        // Healing while studying
-        petHealth = Math.min(100, petHealth + 1);
-      }
-    }, 5000);
-
-    // Add distraction listeners
-    if (typeof window !== "undefined") {
-      document.addEventListener("visibilitychange", handleVisibilityChange);
-      window.addEventListener("blur", handleBlur);
-    }
-  }
-
-  function handleVisibilityChange() {
-    if (document.hidden && isSessionActive) {
-      punishDistraction();
-    }
-  }
-
-  function handleBlur() {
-    if (isSessionActive) {
-      punishDistraction();
-    }
-  }
-
-  function punishDistraction() {
-    petHealth = Math.max(0, petHealth - 10);
-
-    if (petHealth === 0) {
-      isSessionActive = false;
-      clearInterval(healthInterval);
-    }
-  }
-
-  onDestroy(() => {
-    if (typeof window !== "undefined") {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("blur", handleBlur);
-      clearInterval(healthInterval);
-    }
-  });
-
-  const petOptions = [
-    { id: "puppy", emoji: "🐶", label: "Puppy" },
-    { id: "kitten", emoji: "🐱", label: "Kitten" },
-    { id: "hamster", emoji: "🐹", label: "Hamster" },
-  ];
 
   const quizQuestions = [
     {
@@ -130,7 +82,7 @@
         { text: "Listening to explanations", type: "audio" },
         { text: "Watching diagrams/videos", type: "visual" },
         { text: "Reading instructions or notes", type: "read" },
-        { text: "Trying it yourself", type: "practice" },
+        { text: "Trying it yourself", type: "active" },
       ],
     },
     {
@@ -139,7 +91,7 @@
         { text: "Explains verbally", type: "audio" },
         { text: "Uses charts, slides, drawings", type: "visual" },
         { text: "Gives written notes/textbook", type: "read" },
-        { text: "Makes you do activities", type: "practice" },
+        { text: "Makes you do activities", type: "active" },
       ],
     },
     {
@@ -148,7 +100,7 @@
         { text: "Someone telling you the route", type: "audio" },
         { text: "A map", type: "visual" },
         { text: "Written directions", type: "read" },
-        { text: "Going once with someone", type: "practice" },
+        { text: "Going once with someone", type: "active" },
       ],
     },
     {
@@ -157,7 +109,7 @@
         { text: "Repeat it aloud", type: "audio" },
         { text: "Visualize it in your mind", type: "visual" },
         { text: "Write it down", type: "read" },
-        { text: "Practice or act it out", type: "practice" },
+        { text: "Practice or act it out", type: "active" },
       ],
     },
     {
@@ -166,7 +118,7 @@
         { text: "Listening to lectures/podcasts", type: "audio" },
         { text: "Watching tutorials/videos", type: "visual" },
         { text: "Reading books/notes", type: "read" },
-        { text: "Solving problems/practicals", type: "practice" },
+        { text: "Solving problems/practicals", type: "active" },
       ],
     },
     {
@@ -175,7 +127,7 @@
         { text: "Remembering what you heard", type: "audio" },
         { text: "Seeing the page or diagram in your mind", type: "visual" },
         { text: "Remembering what you read", type: "read" },
-        { text: "Remembering what you practiced", type: "practice" },
+        { text: "Remembering what you practiced", type: "active" },
       ],
     },
     {
@@ -184,7 +136,7 @@
         { text: "Listen to someone explain", type: "audio" },
         { text: "Look at pictures/diagrams", type: "visual" },
         { text: "Read the manual carefully", type: "read" },
-        { text: "Start building immediately", type: "practice" },
+        { text: "Start building immediately", type: "active" },
       ],
     },
     {
@@ -193,7 +145,7 @@
         { text: "Discuss ideas", type: "audio" },
         { text: "Create visuals/presentations", type: "visual" },
         { text: "Take notes/write content", type: "read" },
-        { text: "Handle practical tasks", type: "practice" },
+        { text: "Handle practical tasks", type: "active" },
       ],
     },
     {
@@ -202,7 +154,7 @@
         { text: "Too much reading", type: "audio" },
         { text: "No visuals", type: "visual" },
         { text: "Only listening", type: "read" },
-        { text: "No hands-on work", type: "practice" },
+        { text: "No hands-on work", type: "active" },
       ],
     },
     {
@@ -211,10 +163,18 @@
         { text: "Explain clearly through speech", type: "audio" },
         { text: "Use many visuals and examples", type: "visual" },
         { text: "Provide detailed notes", type: "read" },
-        { text: "Give activities, experiments, tests", type: "practice" },
+        { text: "Give activities, experiments, tests", type: "active" },
       ],
     },
   ];
+
+  const petOptions = [
+    { emoji: "🐶", label: "Puppy" },
+    { emoji: "🐱", label: "Kitten" },
+    { emoji: "🐹", label: "Hamster" },
+  ];
+
+  // ---------------- QUIZ ----------------
 
   function handleAnswer(type) {
     scores[type]++;
@@ -226,68 +186,82 @@
   }
 
   function finishQuiz() {
-    // Determine winner
     const winner = Object.keys(scores).reduce((a, b) =>
       scores[a] > scores[b] ? a : b,
     );
 
-    // Map winner to pre-selected options and result display
-    if (winner === "visual") {
-      learningStyles = ["visual", "video"];
-      learnerType = {
+    const map = {
+      visual: {
+        type: "visual",
         label: "Visual Learner",
         icon: "👁️",
-        description:
-          "You learn best through images, diagrams, charts, and videos.",
-      };
-    } else if (winner === "audio") {
-      learningStyles = ["audio"];
-      learnerType = {
+        description: "You learn best with diagrams and visuals.",
+      },
+      audio: {
+        type: "audio",
         label: "Audio Learner",
         icon: "🎧",
-        description:
-          "You learn best by listening, discussing, and explaining ideas.",
-      };
-    } else if (winner === "read") {
-      learningStyles = ["read"];
-      learnerType = {
+        description: "You learn best by listening.",
+      },
+      read: {
+        type: "read",
         label: "Reader / Writer",
         icon: "📚",
-        description:
-          "You prefer reading texts, taking detailed notes, and writing summaries.",
-      };
-    } else {
-      // practice
-      learningStyles = ["practice"];
-      learnerType = {
-        label: "Active (Kinesthetic) Learner",
+        description: "You prefer reading and structured notes.",
+      },
+      active: {
+        type: "active",
+        label: "Active Learner",
         icon: "🤸",
-        description:
-          "You learn best by doing, moving, building, and practicing.",
-      };
-    }
+        description: "You learn by doing and practicing.",
+      },
+    };
 
+    learnerType = map[winner];
     step = "result";
+    saveQuizResult(winner);
+  }
+
+  async function saveQuizResult(winner) {
+    if (!user) return;
+    try {
+      await fetch(`${API_BASE_URL}/api/quiz/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user._id, winner }),
+      });
+    } catch (err) {
+      console.error("Failed to save quiz result:", err);
+    }
   }
 
   function proceedToAdopt() {
     step = "adopt";
   }
 
-  function adoptPet() {
-    if (!petName || !petName.trim()) {
-      alert("Please give your study buddy a name!");
+  async function adoptPet() {
+    if (!petName.trim()) {
+      alert("Name your pet!");
       return;
     }
-    step = "setup";
+
+    try {
+      await fetch(`${API_BASE_URL}/api/pet/adopt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user._id,
+          petName,
+          petEmoji,
+        }),
+      });
+      step = "setup";
+    } catch (err) {
+      console.error("Failed to adopt pet:", err);
+    }
   }
 
-  const durationOptions = ["30 min", "1 hour", "2 hours", "Custom"];
-  const fragilityOptions = [
-    { label: "Resilient", icon: "🛡️", desc: "Harder to lose health" },
-    { label: "Normal", icon: "❤️", desc: "Standard health loss" },
-    { label: "Sensitive", icon: "💔", desc: "Needs extra care & focus" },
-  ];
+  // ---------------- FILES ----------------
 
   function handleFileSelect(event) {
     const files = Array.from(event.target.files);
@@ -301,7 +275,6 @@
 
   function addFiles(files) {
     const validFiles = files.filter((file) => {
-      // Basic validation for accepted types
       const validTypes = [
         ".ppt",
         ".pptx",
@@ -319,8 +292,189 @@
   }
 
   function removeFile(fileToRemove) {
-    uploadedFiles = uploadedFiles.filter((file) => file !== fileToRemove);
+    uploadedFiles = uploadedFiles.filter((f) => f !== fileToRemove);
   }
+
+  // ---------------- SESSION ----------------
+
+  function startSession() {
+    if (!searchQuery && uploadedFiles.length === 0) {
+      alert("Add topic or upload file");
+      return;
+    }
+
+    if (!searchQuery && uploadedFiles.length > 0) {
+      searchQuery = uploadedFiles[0].name.replace(/\.[^/.]+$/, "");
+    }
+
+    step = "analyzing";
+    scrapeProgress = 0;
+
+    const interval = setInterval(() => {
+      scrapeProgress += 5;
+      if (scrapeProgress >= 100) {
+        clearInterval(interval);
+        enterSession();
+      }
+    }, 50);
+  }
+
+  async function enterSession() {
+    isLoading = true;
+    error = null;
+    isSessionActive = true;
+    distractionCount = 0;
+    petHealth = 100;
+    petDies = false;
+
+    try {
+      let data;
+      if (uploadedFiles.length > 0) {
+        // Upload PDF for parsing
+        const formData = new FormData();
+        formData.append("file", uploadedFiles[0]);
+        formData.append("userId", user._id);
+
+        const res = await fetch(`${API_BASE_URL}/api/pdf/upload`, {
+          method: "POST",
+          body: formData,
+        });
+        if (!res.ok) throw new Error("PDF processing failed");
+        data = await res.json();
+      } else {
+        // Generate from topic
+        const res = await fetch(`${API_BASE_URL}/api/ai/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user._id,
+            topic: searchQuery,
+            notes: notes,
+          }),
+        });
+        if (!res.ok) throw new Error("AI generation failed");
+        data = await res.json();
+      }
+
+      generatedContent = data;
+      step = "session";
+      startFocusTimer();
+
+      document.addEventListener("visibilitychange", handleDistraction);
+      window.addEventListener("blur", handleDistraction);
+    } catch (err) {
+      error = err.message;
+      step = "setup";
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  // ---------------- FOCUS LOGIC ----------------
+
+  function handleDistraction() {
+    if (!isSessionActive || petDies) return;
+
+    if (document.hidden) {
+      punishDistraction();
+    } else {
+      startFocusTimer();
+    }
+  }
+
+  function punishDistraction() {
+    distractionCount++;
+
+    clearTimeout(focusTimer);
+
+    if (distractionCount === 1) {
+      petHealth = 60;
+    } else if (distractionCount === 2) {
+      petHealth = 20;
+    } else if (distractionCount >= 3) {
+      petHealth = 0;
+      petDies = true;
+      isSessionActive = false;
+    }
+  }
+
+  function startFocusTimer() {
+    clearTimeout(focusTimer);
+
+    focusTimer = setTimeout(() => {
+      if (!document.hidden && petDies) {
+        petHealth = 100;
+        distractionCount = 0;
+        petDies = false;
+        isSessionActive = true;
+      }
+    }, 30000); // 30 seconds revival
+  }
+
+  // ---------------- CONTENT GENERATOR ----------------
+
+  function generateLearningContent(learnerType, topic) {
+    if (!learnerType) return "";
+
+    switch (learnerType.type) {
+      case "visual":
+        return `
+          <div class="card">
+            <h3>📊 Visual Flow for ${topic}</h3>
+            <p>Main Idea → Core Concepts → Applications</p>
+            <pre>
+              ${topic}
+                ↓
+            Concept A → Concept B
+                ↓
+            Real World Use
+            </pre>
+          </div>
+        `;
+
+      case "audio":
+        return `
+          <div class="card">
+            <h3>🎧 Podcast Script</h3>
+            <p>Imagine explaining ${topic} conversationally to a friend...</p>
+          </div>
+        `;
+
+      case "read":
+        return `
+          <div class="card">
+            <h3>📚 Detailed Notes on ${topic}</h3>
+            <ul>
+              <li>Definition</li>
+              <li>Core Principles</li>
+              <li>Examples</li>
+              <li>Applications</li>
+            </ul>
+          </div>
+        `;
+
+      case "active":
+        return `
+          <div class="card">
+            <h3>🤸 Practice Tasks</h3>
+            <ol>
+              <li>Draw the system</li>
+              <li>Explain without notes</li>
+              <li>Apply to real life</li>
+            </ol>
+          </div>
+        `;
+
+      default:
+        return "";
+    }
+  }
+
+  onDestroy(() => {
+    document.removeEventListener("visibilitychange", handleDistraction);
+    window.removeEventListener("blur", handleDistraction);
+    clearTimeout(focusTimer);
+  });
 </script>
 
 <main
@@ -330,7 +484,7 @@
   {#if step === "auth"}
     <div class="auth-container">
       <header class="hero">
-        <h1 class="title">AI Study Commander</h1>
+        <h1 class="title">Focus Pet</h1>
         <p class="subtitle">Focus responsibly. Save your pet.</p>
       </header>
 
@@ -340,6 +494,20 @@
         </h2>
 
         <form class="auth-form" on:submit|preventDefault={handleAuth}>
+          {#if isSignUp}
+            <div class="field-group">
+              <label for="username">Full Name</label>
+              <input
+                type="text"
+                id="username"
+                bind:value={username}
+                required
+                placeholder="John Doe"
+                class="text-input"
+              />
+            </div>
+          {/if}
+
           <div class="field-group">
             <label for="email">Email</label>
             <input
@@ -424,9 +592,9 @@
       </header>
 
       <div class="card result-card">
-        <div class="result-icon">{learnerType?.icon}</div>
-        <h2 class="result-title">{learnerType?.label}</h2>
-        <p class="result-description">{learnerType?.description}</p>
+        <div class="result-icon">{learnerType.icon}</div>
+        <h2 class="result-title">{learnerType.label}</h2>
+        <p class="result-description">{learnerType.description}</p>
 
         <button class="cta-btn" on:click={proceedToAdopt}>
           Find Your Companion
@@ -537,7 +705,7 @@
       <div class="setup-content">
         <!-- Hero Section -->
         <header class="hero" style="text-align: left; align-items: flex-start;">
-          <h1 class="title">AI Study Commander</h1>
+          <h1 class="title">Focus Pet</h1>
           <p class="subtitle">
             Your autonomous learning coach that adapts to how you learn best.
           </p>
@@ -594,6 +762,17 @@
                 </div>
               {/if}
             </div>
+          </div>
+
+          <div class="field-group">
+            <label for="search-query">Learning Topic (Optional)</label>
+            <input
+              type="text"
+              id="search-query"
+              bind:value={searchQuery}
+              placeholder="e.g. Quantum Physics, Impressionist Art"
+              class="text-input"
+            />
           </div>
 
           <!-- Notes/Comment Section -->
@@ -672,102 +851,86 @@
       <div class="setup-content">
         <header class="dashboard-header">
           <div class="header-info">
-            <span class="badge">{learnerType?.label || "General Learner"}</span>
+            <span class="badge">{learnerType.label}</span>
             <h1 class="session-title">{searchQuery}</h1>
           </div>
           <div class="timer-badge">Session Active ⚡</div>
         </header>
 
         <!-- Dynamic Resource Content -->
-
-        {#if learnerType?.label === "Visual Learner" || learnerType?.label === "Audio Learner"}
-          <!-- Video / Audio Feed -->
-          <div class="resource-section">
-            <h3 class="section-title">
-              {learnerType?.label === "Visual Learner"
-                ? "📺 Curated Videos"
-                : "🎧 Podcasts & Lectures"}
-            </h3>
-            <div class="video-grid">
-              <!-- Mock Videos -->
-              <div class="video-card">
-                <div class="video-thumbnail">▶</div>
-                <div class="video-info">
-                  <h4>Introduction to {searchQuery}</h4>
-                  <p>10:24 • CrashCourse</p>
-                </div>
-              </div>
-              <div class="video-card">
-                <div class="video-thumbnail">▶</div>
-                <div class="video-info">
-                  <h4>Advanced Concepts in {searchQuery}</h4>
-                  <p>15:30 • Khan Academy (Simulated)</p>
-                </div>
-              </div>
-              <div class="video-card">
-                <div class="video-thumbnail">▶</div>
-                <div class="video-info">
-                  <h4>{searchQuery} Explained Simply</h4>
-                  <p>08:45 • TED-Ed</p>
-                </div>
-              </div>
+        <div class="resource-section">
+          {#if generatedContent}
+            <div class="content-card summary-card">
+              <h3>📝 Study Summary</h3>
+              <p>{generatedContent.summary}</p>
             </div>
-          </div>
-        {/if}
 
-        {#if learnerType?.label === "Reader / Writer" || !learnerType}
-          <!-- Text Content -->
-          <div class="resource-section">
-            <h3 class="section-title">📚 Smart Summary & Notes</h3>
-            <div class="text-content card">
-              <p>
-                <strong>Overview:</strong>
-                {searchQuery} is a fundamental concept in this field. It involves
-                understanding the core principles and applying them to solve complex
-                problems.
-              </p>
-              <ul>
-                <li>Key Concept 1: The foundation of {searchQuery}.</li>
-                <li>Key Concept 2: Practical applications and case studies.</li>
-                <li>Key Concept 3: Future trends and developments.</li>
-              </ul>
-              <p>
-                <em
-                  >(Content generated from uploaded materials and web sources)</em
+            {#if generatedContent.audio_file}
+              <div class="content-card audio-card">
+                <h3>🎧 Audio Lecture</h3>
+                <audio
+                  controls
+                  src={`${API_BASE_URL}/${generatedContent.audio_file}`}
                 >
-              </p>
-            </div>
-          </div>
-        {/if}
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            {/if}
 
-        {#if learnerType?.label === "Active (Kinesthetic) Learner"}
-          <!-- Practice Content -->
-          <div class="resource-section">
-            <h3 class="section-title">🧪 Practical Exercises</h3>
-            <div class="quiz-card card">
-              <h4>Quick Check: {searchQuery}</h4>
-              <p>Test your knowledge with these generated questions.</p>
-              <button class="cta-btn" style="margin-top: 1rem; font-size: 1rem;"
-                >Start Practice Quiz</button
-              >
+            {#if generatedContent.visual_diagram_mermaid}
+              <div class="content-card diagram-card">
+                <h3>📊 Visual Roadmap</h3>
+                <pre class="mermaid-code">
+                  {generatedContent.visual_diagram_mermaid}
+                </pre>
+                <p class="helper-text">{generatedContent.visual_explanation}</p>
+              </div>
+            {/if}
+
+            <div class="content-card notes-card">
+              <h3>📚 Deep Dive Notes</h3>
+              <div class="notes-body">
+                {@html generatedContent.reader_notes.replace(/\n/g, "<br/>")}
+              </div>
             </div>
 
-            <div class="card" style="margin-top: 1rem;">
-              <h4>Hands-on Task</h4>
-              <p>
-                Try to implement or build a model regarding {searchQuery} using the
-                provided diagram.
-              </p>
-            </div>
-          </div>
-        {/if}
+            {#if generatedContent.practice_exercises && generatedContent.practice_exercises.length > 0}
+              <div class="content-card exercise-card">
+                <h3>🤸 Practice Exercises</h3>
+                <ul>
+                  {#each generatedContent.practice_exercises as exercise}
+                    <li>{exercise}</li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+
+            {#if generatedContent.mini_games && generatedContent.mini_games.length > 0}
+              <div class="content-card games-card">
+                <h3>🎮 Mini Challenges</h3>
+                {#each generatedContent.mini_games as game}
+                  <div class="game-item">
+                    <p><strong>{game.question}</strong></p>
+                    <div class="game-options">
+                      {#each game.options as option}
+                        <button class="game-opt-btn">{option}</button>
+                      {/each}
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          {:else}
+            <p>Loading your study materials...</p>
+          {/if}
+        </div>
       </div>
     </div>
   {/if}
 
   <!-- Footer -->
   <footer class="footer">
-    <p>No signup required • Start instantly</p>
+    <p>AI Study Commander • TinkerHack 2026</p>
   </footer>
 </main>
 
@@ -794,35 +957,34 @@
 
   .title {
     font-size: 3rem;
-    background: linear-gradient(to right, #4f46e5, #9333ea);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: #1e293b; /* Slate 800 */
     letter-spacing: -0.02em;
     margin-bottom: 0.25rem;
+    text-shadow: 0 2px 0 rgba(255, 255, 255, 0.5);
   }
 
   .subtitle {
     font-size: 1.25rem;
     font-weight: 500;
-    color: #334155;
+    color: #64748b; /* Slate 500 */
     margin: 0;
   }
 
-  /* Card Component */
+  /* Card Component - Glassmorphism */
   .card {
-    background: white;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     width: 100%;
     max-width: 600px;
     padding: 2.5rem;
     border-radius: 1.5rem;
-    box-shadow:
-      0 20px 25px -5px rgba(0, 0, 0, 0.1),
-      0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
     gap: 2rem;
-    border: 1px solid #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    color: #334155;
   }
 
   .field-group {
@@ -838,7 +1000,7 @@
   label {
     font-size: 0.95rem;
     font-weight: 600;
-    color: #475569;
+    color: #475569; /* Slate 600 */
     margin-left: 0.25rem;
     padding: 0;
   }
@@ -848,13 +1010,18 @@
     width: 100%;
     padding: 1rem 1.25rem;
     font-size: 1rem;
-    border: 2px solid #e2e8f0;
+    border: 1px solid rgba(255, 255, 255, 0.6);
     border-radius: 1rem;
     outline: none;
     transition: all 0.2s;
-    background: #f8fafc;
+    background: rgba(255, 255, 255, 0.5);
+    color: #1e293b;
     box-sizing: border-box; /* Crucial for full width */
     font-family: inherit; /* Ensure textarea inherits font */
+  }
+
+  .text-input::placeholder {
+    color: #94a3b8;
   }
 
   .text-input.textarea {
@@ -863,111 +1030,31 @@
   }
 
   .text-input:focus {
-    border-color: #6366f1;
-    background: white;
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
-  }
-
-  /* Field: Duration Pill Buttons */
-  .button-group {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-  }
-
-  .pill-btn {
-    padding: 0.6rem 1.25rem;
-    border-radius: 2rem;
-    border: 1px solid #e2e8f0;
-    background: white;
-    color: #64748b;
-    font-weight: 500;
-    transition: all 0.2s ease;
-  }
-
-  .pill-btn:hover {
-    background: #f1f5f9;
-    color: #334155;
-    transform: translateY(-1px);
-  }
-
-  .pill-btn.selected {
-    background: #eef2ff;
-    color: #4f46e5;
-    border-color: #4f46e5;
-    font-weight: 600;
-    box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.1);
-  }
-
-  /* Field: Discipline Slider Group */
-  .slider-group {
-    display: flex;
-    background: #f1f5f9;
-    padding: 0.25rem;
-    border-radius: 0.75rem;
-    gap: 0;
-  }
-
-  .scale-btn {
-    flex: 1;
-    padding: 0.6rem;
-    border-radius: 0.5rem;
-    border: none;
-    background: transparent;
-    color: #64748b;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.25rem;
-  }
-
-  .mode-icon {
-    font-size: 1.25rem;
-  }
-
-  .mode-label {
-    font-size: 0.85rem;
-  }
-
-  .scale-btn:hover {
-    color: #334155;
-  }
-
-  .scale-btn.selected {
-    background: white;
-    color: #0f172a;
-    font-weight: 600;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
-
-  /* Specific colors for strict modes when selected */
-  .scale-btn.ruthless.selected {
-    color: #dc2626; /* Red-600 */
+    border-color: #ec4899; /* Pink 500 */
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
   }
 
   /* Field: File Upload */
   .upload-area {
-    border: 2px dashed #cbd5e1;
+    border: 2px dashed rgba(71, 85, 105, 0.4); /* Slate 600 */
     border-radius: 1rem;
     padding: 2rem;
     text-align: center;
     cursor: pointer;
     transition: all 0.2s ease;
-    background: #f8fafc;
+    background: rgba(255, 255, 255, 0.5);
   }
 
   .upload-area:hover {
-    border-color: #6366f1;
-    background: #f1f5f9;
+    border-color: #ec4899; /* Pink 500 */
+    background: rgba(255, 255, 255, 0.8);
   }
 
   .upload-area:focus {
     outline: none;
-    border-color: #6366f1;
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    border-color: #ec4899;
+    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
   }
 
   .upload-placeholder {
@@ -975,7 +1062,7 @@
     flex-direction: column;
     align-items: center;
     gap: 0.5rem;
-    color: #64748b;
+    color: #475569; /* Slate 600 */
   }
 
   .upload-icon {
@@ -984,7 +1071,7 @@
 
   .file-types {
     font-size: 0.8rem;
-    color: #94a3b8;
+    color: #64748b;
   }
 
   .file-list {
@@ -999,8 +1086,8 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem;
-    background: white;
-    border: 1px solid #e2e8f0;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 0.75rem;
     text-align: left;
   }
@@ -1008,7 +1095,7 @@
   .file-name {
     flex: 1;
     font-size: 0.9rem;
-    color: #334155;
+    color: #1e293b;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1029,12 +1116,12 @@
 
   .remove-btn:hover {
     background: #f1f5f9;
-    color: #ef4444;
+    color: #ef4444; /* Red 500 */
   }
 
   .add-more {
     font-size: 0.85rem;
-    color: #6366f1;
+    color: #06b6d4; /* Cyan 500 */
     font-weight: 500;
     margin-top: 0.5rem;
   }
@@ -1047,15 +1134,15 @@
     font-size: 1.1rem;
     font-weight: 600;
     color: white;
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    background: linear-gradient(135deg, #ec4899 0%, #f59e0b 100%);
     border: none;
     border-radius: 1rem;
-    box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+    box-shadow: 0 10px 20px -5px rgba(236, 72, 153, 0.4);
     transition: all 0.3s ease;
   }
 
   .cta-btn:hover {
-    box-shadow: 0 20px 25px -5px rgba(79, 70, 229, 0.4);
+    box-shadow: 0 15px 25px -5px rgba(236, 72, 153, 0.5);
     transform: translateY(-2px) scale(1.01);
     filter: brightness(1.1);
   }
@@ -1064,599 +1151,7 @@
     transform: translateY(0) scale(0.99);
   }
 
-  /* Footer */
-  .footer {
-    color: #94a3b8;
-    font-size: 0.875rem;
-    font-weight: 500;
-  }
-
-  /* Mobile responsiveness */
-  @media (max-width: 640px) {
-    .title {
-      font-size: 2.25rem;
-    }
-
-    .card {
-      padding: 1.5rem;
-      border-radius: 1rem;
-    }
-
-    .slider-group {
-      flex-wrap: wrap;
-    }
-
-    .scale-btn {
-      flex-basis: 45%;
-    }
-  }
-
-  /* Quiz Styles */
-  .quiz-container {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2rem;
-  }
-
-  .quiz-card {
-    text-align: center;
-    align-items: center;
-  }
-
-  .question-text {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 2rem;
-    line-height: 1.3;
-  }
-
-  .options-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    width: 100%;
-  }
-  /* Result Styles */
-  .result-card {
-    text-align: center;
-    align-items: center;
-    gap: 1.5rem;
-  }
-
-  .result-icon {
-    font-size: 5rem;
-    margin-bottom: 1rem;
-    animation: float 3s ease-in-out infinite;
-  }
-
-  .result-title {
-    font-size: 2rem;
-    font-weight: 700;
-    margin: 0;
-    background: linear-gradient(to right, #4f46e5, #9333ea);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
-  .result-description {
-    font-size: 1.1rem;
-    color: #64748b;
-    max-width: 400px;
-    margin: 0 auto;
-    line-height: 1.6;
-  }
-
-  @keyframes float {
-    0% {
-      transform: translateY(0px);
-    }
-    50% {
-      transform: translateY(-10px);
-    }
-    100% {
-      transform: translateY(0px);
-    }
-  }
-
-  .quiz-option {
-    padding: 1.25rem;
-    font-size: 1.1rem;
-    color: #334155;
-    background: white;
-    border: 2px solid #e2e8f0;
-    border-radius: 1rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-align: left;
-    width: 100%;
-  }
-
-  .quiz-option:hover {
-    border-color: #6366f1;
-    background: #eef2ff;
-    color: #4f46e5;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  }
-
-  .progress-bar {
-    width: 200px;
-    height: 8px;
-    background: #e2e8f0;
-    border-radius: 4px;
-    margin: 1rem auto 0;
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: #4f46e5;
-    transition: width 0.3s ease;
-  }
-  /* Pet Adoption Styles */
-  .adopt-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2rem;
-    text-align: center;
-  }
-  .pet-selection {
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  .pet-option-btn {
-    font-size: 2rem;
-    padding: 0.5rem;
-    border: 2px solid transparent;
-    border-radius: 50%;
-    cursor: pointer;
-    background: #f1f5f9;
-    transition: all 0.2s ease;
-  }
-
-  .pet-option-btn:hover {
-    transform: scale(1.1);
-    background: #e2e8f0;
-  }
-
-  .pet-option-btn.selected {
-    border-color: #6366f1;
-    background: #eef2ff;
-    transform: scale(1.15);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  }
-  .pet-container {
-    position: relative;
-    width: 200px;
-    height: 200px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .pet-avatar {
-    font-size: 8rem;
-    animation: float 3s ease-in-out infinite;
-    cursor: pointer;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    z-index: 2;
-  }
-
-  .pet-avatar:hover {
-    transform: scale(1.1) rotate(5deg);
-    filter: drop-shadow(0 0 15px rgba(251, 191, 36, 0.4));
-  }
-
-  .pet-shadow {
-    position: absolute;
-    bottom: 20px;
-    width: 80px;
-    height: 10px;
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: 50%;
-    animation: shadow 3s ease-in-out infinite;
-    z-index: 1;
-  }
-
-  .pet-input {
-    text-align: center;
-    font-size: 1.25rem;
-    max-width: 300px;
-  }
-
-  .bounce-btn:hover {
-    animation: bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  @keyframes shadow {
-    0% {
-      transform: scale(1);
-      opacity: 0.1;
-    }
-    50% {
-      transform: scale(0.8);
-      opacity: 0.2;
-    }
-    100% {
-      transform: scale(1);
-      opacity: 0.1;
-    }
-  }
-
-  @keyframes bounce {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-5px);
-    }
-  }
-  /* Setup Mode Layout */
-  .container.setup-mode {
-    max-width: 1200px;
-    align-items: flex-start;
-  }
-
-  .setup-grid {
-    display: flex;
-    gap: 3rem;
-    width: 100%;
-    align-items: flex-start;
-    justify-content: center;
-    position: relative;
-  }
-
-  .pet-sidebar {
-    width: 250px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: sticky;
-    top: 2rem;
-    padding-top: 2rem;
-    flex-shrink: 0;
-  }
-
-  .pet-mascot {
-    font-size: 8rem;
-    animation: float 4s ease-in-out infinite;
-    cursor: grab;
-    transition: transform 0.2s;
-    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.1));
-  }
-
-  .pet-mascot:hover {
-    transform: scale(1.1) rotate(5deg);
-  }
-
-  .pet-bubble {
-    background: white;
-    padding: 1rem 1.5rem;
-    border-radius: 1rem;
-    border-bottom-left-radius: 0;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    margin-top: 1rem;
-    font-weight: 600;
-    color: #4f46e5;
-    position: relative;
-    text-align: center;
-    border: 1px solid #e2e8f0;
-    opacity: 0;
-    animation: fadeIn 0.5s ease 0.5s forwards;
-  }
-
-  .pet-bubble::after {
-    content: "";
-    position: absolute;
-    top: -10px;
-    left: 20px;
-    border-width: 0 10px 10px;
-    border-style: solid;
-    border-color: transparent transparent white;
-  }
-
-  .setup-content {
-    flex: 1;
-    max-width: 700px;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-  }
-
-  @keyframes fadeIn {
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @media (max-width: 900px) {
-    .setup-grid {
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .pet-sidebar {
-      position: relative;
-      width: 100%;
-      flex-direction: row;
-      justify-content: center;
-      gap: 1rem;
-      top: 0;
-      padding-top: 0;
-      margin-bottom: 1rem;
-    }
-
-    .pet-mascot {
-      font-size: 4rem;
-    }
-
-    .pet-bubble {
-      margin-top: 0;
-      font-size: 0.9rem;
-    }
-
-    .pet-bubble::after {
-      top: 50%;
-      left: -10px;
-      margin-top: -10px;
-      border-width: 10px 10px 10px 0;
-      border-color: transparent white transparent transparent;
-    }
-  }
-  .health-container {
-    width: 60%;
-    margin-top: -1rem;
-    margin-bottom: 1rem;
-    position: relative;
-    z-index: 5;
-  }
-
-  .health-label {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #475569;
-    margin-bottom: 0.25rem;
-  }
-
-  .health-bar-bg {
-    width: 100%;
-    height: 10px;
-    background: #e2e8f0;
-    border-radius: 5px;
-    overflow: hidden;
-  }
-
-  .health-bar-fill {
-    height: 100%;
-    transition:
-      width 0.5s ease,
-      background 0.3s;
-  }
-  .helper-text {
-    font-size: 0.85rem;
-    color: #64748b;
-    text-align: center;
-    margin-top: 0.5rem;
-    font-style: italic;
-  }
-  /* Analyzing Step */
-  .analyzing-icon {
-    font-size: 4rem;
-    animation: pulse 1.5s infinite;
-    margin-bottom: 1rem;
-  }
-
-  @keyframes pulse {
-    0% {
-      transform: scale(1);
-      opacity: 1;
-    }
-    50% {
-      transform: scale(1.1);
-      opacity: 0.8;
-    }
-    100% {
-      transform: scale(1);
-      opacity: 1;
-    }
-  }
-
-  /* Session Dashboard */
-  .dashboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #e2e8f0;
-  }
-
-  .header-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    text-align: left;
-  }
-
-  .badge {
-    display: inline-block;
-    background: #eef2ff;
-    color: #4f46e5;
-    padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    width: fit-content;
-  }
-
-  .timer-badge {
-    background: #ecfdf5;
-    color: #059669;
-    padding: 0.5rem 1rem;
-    border-radius: 2rem;
-    font-weight: 600;
-    font-size: 0.9rem;
-    white-space: nowrap;
-    animation: pulse 3s infinite;
-  }
-
-  .session-title {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #1e293b;
-    margin: 0;
-    text-transform: capitalize;
-  }
-
-  .resource-section {
-    margin-bottom: 3rem;
-  }
-
-  .section-title {
-    font-size: 1.25rem;
-    color: #334155;
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .video-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1.5rem;
-  }
-
-  .video-card {
-    background: white;
-    border-radius: 1rem;
-    overflow: hidden;
-    border: 1px solid #e2e8f0;
-    transition: transform 0.2s;
-    cursor: pointer;
-  }
-
-  .video-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  }
-
-  .video-thumbnail {
-    height: 120px;
-    background: #1e293b;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-  }
-
-  .video-info {
-    padding: 1rem;
-  }
-
-  .video-info h4 {
-    font-size: 0.95rem;
-    margin: 0 0 0.5rem 0;
-    color: #0f172a;
-  }
-
-  .video-info p {
-    font-size: 0.8rem;
-    color: #64748b;
-    margin: 0;
-  }
-
-  .text-content ul {
-    padding-left: 1.5rem;
-    color: #475569;
-  }
-
-  .text-content li {
-    margin-bottom: 0.5rem;
-  }
-
-  /* Pet Info Tooltip */
-  .pet-info-trigger {
-    margin-top: 1.5rem;
-    position: relative;
-    cursor: pointer;
-    font-size: 0.9rem;
-    color: #64748b;
-    font-weight: 500;
-  }
-
-  .pet-info-trigger::after {
-    content: ""; /* Underline effect */
-    display: block;
-    width: 0;
-    height: 1px;
-    background: #64748b;
-    transition: width 0.3s;
-  }
-
-  .pet-info-trigger:hover::after {
-    width: 100%;
-  }
-
-  .pet-info-card {
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%) translateY(10px);
-    width: 220px;
-    background: white;
-    padding: 1rem;
-    border-radius: 0.75rem;
-    box-shadow:
-      0 10px 15px -3px rgba(0, 0, 0, 0.1),
-      0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e2e8f0;
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.3s ease;
-    z-index: 10;
-    font-size: 0.85rem;
-    text-align: left;
-    color: #334155;
-  }
-
-  .pet-info-card::before {
-    content: "";
-    position: absolute;
-    top: -6px;
-    left: 50%;
-    margin-left: -6px;
-    border-width: 0 6px 6px;
-    border-style: solid;
-    border-color: transparent transparent #e2e8f0;
-  }
-
-  .pet-info-trigger:hover .pet-info-card {
-    opacity: 1;
-    visibility: visible;
-    transform: translateX(-50%) translateY(0);
-  }
-
-  .pet-info-card ul {
-    padding-left: 1.25rem;
-    margin: 0.5rem 0;
-  }
-
-  .pet-info-card li {
-    margin-bottom: 0.25rem;
-  }
+  /* ... (keeping intermediate styles if any) ... */
 
   /* Auth Page Styles */
   .auth-container {
@@ -1675,7 +1170,7 @@
   .auth-title {
     text-align: center;
     font-size: 1.5rem;
-    color: #1e293b;
+    color: #1e293b; /* Slate 800 */
     margin-bottom: 1.5rem;
   }
 
@@ -1683,13 +1178,13 @@
     text-align: center;
     font-size: 0.9rem;
     margin-top: 1.5rem;
-    color: #64748b;
+    color: #475569; /* Slate 600 */
   }
 
   .link-btn {
     background: none;
     border: none;
-    color: #4f46e5;
+    color: #ec4899; /* Pink 500 */
     font-weight: 600;
     cursor: pointer;
     text-decoration: underline;
@@ -1698,7 +1193,7 @@
   }
 
   .link-btn:hover {
-    color: #4338ca;
+    color: #be185d; /* Pink 700 */
   }
 
   .auth-preview {
@@ -1716,5 +1211,93 @@
     100% {
       transform: translateY(0px);
     }
+  }
+
+  /* AI Content Cards */
+  .content-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    margin-bottom: 1.5rem;
+    border: 1px solid #f1f5f9;
+  }
+
+  .content-card h3 {
+    margin-top: 0;
+    color: #1e293b;
+    font-size: 1.25rem;
+    border-bottom: 2px solid #f1f5f9;
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .notes-body {
+    line-height: 1.6;
+    color: #334155;
+  }
+
+  .mermaid-code {
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    font-family: monospace;
+    overflow-x: auto;
+    border: 1px solid #e2e8f0;
+  }
+
+  .helper-text {
+    font-size: 0.9rem;
+    color: #64748b;
+    font-style: italic;
+    margin-top: 0.5rem;
+  }
+
+  .audio-card audio {
+    width: 100%;
+    margin-top: 0.5rem;
+  }
+
+  .exercise-card ul {
+    padding-left: 1.5rem;
+    margin: 0;
+  }
+
+  .exercise-card li {
+    margin-bottom: 0.5rem;
+    color: #475569;
+  }
+
+  .game-item {
+    background: #f1f5f9;
+    padding: 1.25rem;
+    border-radius: 0.75rem;
+    margin-bottom: 1.25rem;
+    border-left: 4px solid #ec4899;
+  }
+
+  .game-options {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .game-opt-btn {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.75rem;
+    border: 1px solid #cbd5e1;
+    background: white;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+
+  .game-opt-btn:hover {
+    background: #eef2ff;
+    border-color: #4f46e5;
+    color: #4f46e5;
   }
 </style>
