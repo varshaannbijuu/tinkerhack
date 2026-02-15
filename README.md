@@ -1,4 +1,3 @@
-````
 # Focus Pet 🎯
 
 ## Basic Details
@@ -281,5 +280,3 @@ This project is licensed under the MIT License.
 ---
 
 **Made with ❤️ at TinkerHub**
-
-```
