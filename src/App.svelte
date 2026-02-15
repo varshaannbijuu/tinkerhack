@@ -1,8 +1,8 @@
 <script>
-
   import { onDestroy } from "svelte";
 
   const API_BASE_URL = "https://tinkerhack-pw8b.onrender.com";
+
 
   let step = "auth";
   let currentQuestion = 0;
