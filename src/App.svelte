@@ -1,5 +1,5 @@
 <script>
-const API_BASE_URL = https://tinkerhack-pw8b.onrender.com;
+  const API_BASE_URL = "https://tinkerhack-pw8b.onrender.com";
 
   import { onDestroy } from "svelte";
 
