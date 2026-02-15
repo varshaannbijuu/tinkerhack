@@ -1,128 +1,276 @@
+````
+# Focus Pet 🎯
 
-<div align="center">
-  <img src="public/assets/banner.png" alt="Focus Pet Banner" width="100%">
-  <br>
+## Basic Details
 
-  <h1>🧠 Focus Pet: AI Study Commander</h1>
-  
-  <p>
-    <strong>Gamify Your Focus. Master Your Learning Style. Save Your Virtual Companion.</strong>
-  </p>
+**Team Name:** Vega
 
-  <p>
-    <a href="#-about">About</a> •
-    <a href="#-features">Features</a> •
-    <a href="#-tech-stack">Tech Stack</a> •
-    <a href="#-getting-started">Getting Started</a> •
-    <a href="#-contributing">Contributing</a>
-  </p>
+## Team Members
 
-  <p>⭐ Star us on GitHub if this project helped you study! ⭐</p>
-</div>
+- Sneha Sooraj — Saintgits College of Engineering  
+- Varsha Ann Biju — Saintgits College of Engineering  
+
+## Hosted Project Link
+
+http://localhost:5173  
+*(Replace with deployed link — Vercel / Netlify / Render)*
 
 ---
 
-## 🚀 About
+## Project Description
 
-**Focus Pet** transforms the solitary act of studying into an engaging mission. Struggling with distractions? Your virtual companion's life depends on your focus! 
-
-Built for **TinkerHack 2026**, this application combines psychological learning science with tamagotchi-style gamification to keep you in the zone.
-
-### Why Focus Pet?
-- **Personalized Learning**: Are you a Visual, Auditory, Read/Write, or Kinesthetic learner? Our AI adapts content to *your* brain.
-- **High Stakes Focus**: Open a distraction tab? Your pet loses health. Stay focused? Watch them thrive.
-- **Instant Resource Generation**: Upload a boring PDF, and we'll turn it into an interactive dashboard tailored to your learning style.
-
-## ✨ Features
-
-- **🧩 Intelligent Style Assessment**: Take our adaptive quiz to discover your optimal learning path.
-- **🐶 Virtual Companions**: adopt **Sparky** (Puppy), **Git** (Kitten), or **Pixel** (Hamster).
-- **❤️ Dynamic Health System**:
-    - **Heal**: Stay on the study tab.
-    - **Damage**: Lose focus (alt-tab, blur window).
-    - **Critical**: Too many distractions lead to a "Game Over" for your session.
-- **📚 Adaptive Study Dashboard**:
-    - **Visual**: Flowcharts, diagrams, and video curation.
-    - **Auditory**: AI-generated podcast scripts and conversational explanations.
-    - **Read/Write**: Structured summaries and bulleted deep-dives.
-    - **Kinesthetic**: Active challenges and "Try This" experiments.
-- **🤖 Document Intelligence**: Powered by OpenAI to parse documents and generate custom study aids.
-
-## 🛠 Tech Stack
-
-### Frontend
-- **Framework**: [Svelte 5](https://svelte.dev/) (Latest & Greatest!)
-- **Build Tool**: [Vite](https://vitejs.dev/)
-- **Styling**: Custom CSS with Glassmorphism aesthetic
-
-### Backend
-- **Runtime**: Node.js & Express
-- **Database**: MongoDB (Mongoose)
-- **AI Integration**: OpenAI API
-- **File Handling**: Multer & PDF-Parse
-
-## 🏁 Getting Started
-
-Follow these steps to set up the project locally.
-
-### Prerequisites
-- Node.js (v18+)
-- MongoDB running locally or a connection string
-- OpenAI API Key
-
-### Installation
-
-1.  **Clone the Repository**
-    ```bash
-    git clone https://github.com/varshaannbijuu/tinkerhack.git
-    cd tinkerhack
-    ```
-
-2.  **Frontend Setup**
-    ```bash
-    # Install dependencies
-    npm install
-
-    # Start the development server
-    npm run dev
-    ```
-    The app will be available at `http://localhost:5173`.
-
-3.  **Backend Setup**
-    Open a new terminal:
-    ```bash
-    cd backend
-
-    # Install dependencies
-    npm install
-
-    # Configure Environment Variables
-    # Create a .env file in /backend with:
-    # PORT=3000
-    # MONGODB_URI=your_mongodb_uri
-    # OPENAI_API_KEY=your_openai_key
-
-    # Start the server
-    npm run dev
-    ```
-    The server will run on `http://localhost:3000`.
-
-## 🤝 Contributing
-
-We welcome contributions! Please fork the repository and submit a Pull Request.
-
-1.  Fork the Project
-2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4.  Push to the Branch (`git push origin feature/AmazingFeature`)
-5.  Open a Pull Request
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
+Focus Pet is an AI-powered study companion that adapts to a user's learning style while keeping them focused through a virtual pet system. The pet’s health depends on user attention — switching tabs harms it, sustained focus revives it. The system also generates personalized learning materials from uploaded documents.
 
 ---
 
-<div align="center">
-  <sub>Built with 💖 by the TinkerHack Team</sub>
-</div>
+## The Problem Statement
+
+Students struggle to stay focused while studying online due to distractions, lack of personalization, and passive learning methods.
+
+---
+
+## The Solution
+
+Focus Pet combines AI-generated personalized content with gamified focus tracking. It detects learning styles, creates tailored study materials (visual/audio/read/active), and uses a virtual pet whose survival depends on the student’s attention.
+
+---
+
+## Technical Details
+
+### Technologies/Components Used
+
+#### For Software
+
+**Languages used:**
+
+- JavaScript  
+- HTML  
+- CSS  
+
+**Frameworks used:**
+
+- Svelte  
+- Node.js  
+- Express  
+
+**Libraries used:**
+
+- OpenAI SDK  
+- Mongoose  
+- Multer (file uploads)  
+
+**Tools used:**
+
+- VS Code  
+- Git & GitHub  
+- MongoDB Atlas  
+- Vite  
+
+---
+
+## Features
+
+- Learning style detection quiz  
+- AI-generated personalized study materials  
+- Upload PDF/PPT/images for analysis  
+- Virtual focus pet with health system  
+- Tab-switch detection (distraction tracking)  
+- Pet revival through sustained focus  
+- Gamified learning experience  
+
+---
+
+## Implementation
+
+### For Software
+
+#### Installation
+
+```bash
+# Clone repo
+git clone https://github.com/yourusername/focus-pet.git
+
+# Backend setup
+cd backend
+npm install
+
+# Frontend setup
+cd ../frontend
+npm install
+````
+
+#### Run
+
+```bash
+# Start backend
+cd backend
+node index.js
+
+# Start frontend
+cd frontend
+npm run dev
+```
+
+---
+
+## Project Documentation
+
+### Screenshots
+
+**Screenshot 1 — Learning style quiz interface**
+
+**Screenshot 2 — Adopt your AI study pet**
+
+**Screenshot 3 — Active study session with personalized content**
+
+---
+
+## Diagrams
+
+### System Architecture
+
+```
+User → Frontend (Svelte)
+        ↓
+     Backend API (Express)
+        ↓
+   MongoDB Database
+        ↓
+     OpenAI API
+```
+
+The frontend collects user input and files, backend processes requests, stores user data, and uses AI services to generate personalized content.
+
+---
+
+### Application Workflow
+
+1. User registers / logs in
+2. New users take learning style quiz
+3. User adopts a virtual pet
+4. Upload study material or topic
+5. AI generates personalized content
+6. Study session begins
+7. Pet health changes based on focus
+
+---
+
+## Additional Documentation
+
+### API Documentation
+
+**Base URL:** [http://localhost:5000](http://localhost:5000)
+
+#### POST /api/auth/register
+
+Register new user
+
+**Request Body:**
+
+```json
+{
+  "username": "Sneha",
+  "email": "test@mail.com",
+  "password": "123456"
+}
+```
+
+#### POST /api/quiz/submit
+
+Submit learning style
+
+```json
+{
+  "userId": "123",
+  "result": "visual"
+}
+```
+
+#### POST /api/pet/adopt
+
+Adopt study pet
+
+```json
+{
+  "petName": "Coco",
+  "petEmoji": "🐶"
+}
+```
+
+#### POST /api/session/create
+
+Create study session
+
+```json
+{
+  "topic": "Machine Learning",
+  "duration": "1 hour"
+}
+```
+
+---
+
+## Project Demo
+
+### Video
+
+*(Add demo video link — YouTube / Drive)*
+
+**Video demonstrates:**
+
+* Registration flow
+* Quiz
+* Pet adoption
+* Study session
+* Focus tracking
+
+---
+
+## AI Tools Used (Optional — Transparency Bonus)
+
+**Tool Used:** ChatGPT / Gemini
+
+**Purpose:**
+
+* Code generation
+* Debugging
+* Feature suggestions
+* Documentation
+
+**Key Prompts Used:**
+
+* “Generate backend API for quiz submission”
+* “Create Svelte UI for virtual pet system”
+* “Implement focus tracking logic”
+
+**Estimated AI-generated code:** ~40%
+
+**Human Contributions:**
+
+* System design
+* Integration
+* Testing
+* UI decisions
+
+---
+
+## Team Contributions
+
+**Sneha Sooraj:**
+Frontend development, UI design, integration
+
+**Varsha Ann Biju:**
+Backend development, database design
+
+---
+
+## License
+
+This project is licensed under the MIT License.
+
+---
+
+**Made with ❤️ at TinkerHub**
+
+```
+```
