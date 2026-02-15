@@ -147,13 +147,7 @@ The frontend collects user input and files, backend processes requests, stores u
 
 ### Application Workflow
 
-1. User registers / logs in
-2. New users take learning style quiz
-3. User adopts a virtual pet
-4. Upload study material or topic
-5. AI generates personalized content
-6. Study session begins
-7. Pet health changes based on focus
+![System Architecture](Screenshot_2026-02-15_13-06-24.png)
 
 ---
 
