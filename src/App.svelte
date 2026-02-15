@@ -1,57 +1,125 @@
 <script>
   import { onDestroy } from "svelte";
 
-  const API_BASE_URL = "http://localhost:3000";
-
-  let step = "auth"; // 'auth', 'quiz', 'result', 'adopt', 'setup', 'session', 'analyzing'
+  let step = "auth"; // 'auth', 'quiz', 'result', 'adopt', 'setup', 'session'
   let currentQuestion = 0;
-  let scores = { audio: 0, visual: 0, read: 0, active: 0 };
-  let learnerType = null; // { type: string, icon: string, description: string }
+  let scores = { audio: 0, visual: 0, read: 0, practice: 0 };
+  let learnerType = null; // { label: string, icon: string, description: string }
 
   // Auth State
   let email = "";
   let password = "";
-  let username = "";
   let isSignUp = true;
 
   function handleAuth() {
-    if (!email || !password || (isSignUp && !username)) {
-      alert("Please fill in all fields");
+    if (!email || !password) {
+      alert("Please enter email and password");
       return;
     }
-    // Reset quiz state
-    currentQuestion = 0;
-    scores = { audio: 0, visual: 0, read: 0, practice: 0 };
     // Simulate auth success
     step = "quiz";
   }
 
-  // Setup State (user input for session)
-  let notes = ""; // User's additional notes/comments
+  let notes = "";
+  let duration = "1 hour";
+  let learningStyles = [];
+  let showLearningOptions = false;
   let uploadedFiles = [];
   let fileInput;
 
-  // Session State (generated content, pet, analytics)
-  let generatedNotes = ""; // Dynamically generated learning content
   let petName = "";
   let petEmoji = "🐶";
   let petHealth = 100;
   let isSessionActive = false;
-  let petDies = false; // New: Flag for pet death
   let healthInterval;
-  let focusTimer; // New: Timer for sustained focus
-  let distractionCount = 0; // New: counts tab switches/blurs
+
+  // Session Content Logic
+  let searchQuery = "";
+  let isAnalyzing = false;
+  let scrapeProgress = 0;
+
+  // ... (rest of logic will be handled by existing functions or new ones below)
+
+  function startSession() {
+    if (uploadedFiles.length === 0) {
+      alert("Please upload files to start.");
+      return;
+    }
+
+    // 1. Determine Topic from File
+    if (uploadedFiles.length > 0) {
+      const fileName = uploadedFiles[0].name;
+      searchQuery = fileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+    } else {
+      searchQuery = "Study Session";
+    }
+
+    // 2. Start Analysis Simulation
+    step = "analyzing";
+    scrapeProgress = 0;
+
+    const interval = setInterval(() => {
+      scrapeProgress += 5;
+      if (scrapeProgress >= 100) {
+        clearInterval(interval);
+        enterSession();
+      }
+    }, 100);
+  }
+
+  function enterSession() {
+    step = "session";
+    isSessionActive = true;
+
+    // Start Pet Health Logic
+    healthInterval = setInterval(() => {
+      if (!document.hidden && isSessionActive) {
+        // Healing while studying
+        petHealth = Math.min(100, petHealth + 1);
+      }
+    }, 5000);
+
+    // Add distraction listeners
+    if (typeof window !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      window.addEventListener("blur", handleBlur);
+    }
+  }
+
+  function handleVisibilityChange() {
+    if (document.hidden && isSessionActive) {
+      punishDistraction();
+    }
+  }
+
+  function handleBlur() {
+    if (isSessionActive) {
+      punishDistraction();
+    }
+  }
+
+  function punishDistraction() {
+    petHealth = Math.max(0, petHealth - 10);
+
+    if (petHealth === 0) {
+      isSessionActive = false;
+      clearInterval(healthInterval);
+    }
+  }
+
+  onDestroy(() => {
+    if (typeof window !== "undefined") {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleBlur);
+      clearInterval(healthInterval);
+    }
+  });
 
   const petOptions = [
     { id: "puppy", emoji: "🐶", label: "Puppy" },
     { id: "kitten", emoji: "🐱", label: "Kitten" },
     { id: "hamster", emoji: "🐹", label: "Hamster" },
   ];
-
-  // Session Content Logic (for analyzing step)
-  let searchQuery = "";
-  let isAnalyzing = false;
-  let scrapeProgress = 0;
 
   const quizQuestions = [
     {
@@ -60,7 +128,7 @@
         { text: "Listening to explanations", type: "audio" },
         { text: "Watching diagrams/videos", type: "visual" },
         { text: "Reading instructions or notes", type: "read" },
-        { text: "Trying it yourself", type: "active" },
+        { text: "Trying it yourself", type: "practice" },
       ],
     },
     {
@@ -69,7 +137,7 @@
         { text: "Explains verbally", type: "audio" },
         { text: "Uses charts, slides, drawings", type: "visual" },
         { text: "Gives written notes/textbook", type: "read" },
-        { text: "Makes you do activities", type: "active" },
+        { text: "Makes you do activities", type: "practice" },
       ],
     },
     {
@@ -78,7 +146,7 @@
         { text: "Someone telling you the route", type: "audio" },
         { text: "A map", type: "visual" },
         { text: "Written directions", type: "read" },
-        { text: "Going once with someone", type: "active" },
+        { text: "Going once with someone", type: "practice" },
       ],
     },
     {
@@ -87,7 +155,7 @@
         { text: "Repeat it aloud", type: "audio" },
         { text: "Visualize it in your mind", type: "visual" },
         { text: "Write it down", type: "read" },
-        { text: "Practice or act it out", type: "active" },
+        { text: "Practice or act it out", type: "practice" },
       ],
     },
     {
@@ -96,7 +164,7 @@
         { text: "Listening to lectures/podcasts", type: "audio" },
         { text: "Watching tutorials/videos", type: "visual" },
         { text: "Reading books/notes", type: "read" },
-        { text: "Solving problems/practicals", type: "active" },
+        { text: "Solving problems/practicals", type: "practice" },
       ],
     },
     {
@@ -105,7 +173,7 @@
         { text: "Remembering what you heard", type: "audio" },
         { text: "Seeing the page or diagram in your mind", type: "visual" },
         { text: "Remembering what you read", type: "read" },
-        { text: "Remembering what you practiced", type: "active" },
+        { text: "Remembering what you practiced", type: "practice" },
       ],
     },
     {
@@ -114,7 +182,7 @@
         { text: "Listen to someone explain", type: "audio" },
         { text: "Look at pictures/diagrams", type: "visual" },
         { text: "Read the manual carefully", type: "read" },
-        { text: "Start building immediately", type: "active" },
+        { text: "Start building immediately", type: "practice" },
       ],
     },
     {
@@ -123,7 +191,7 @@
         { text: "Discuss ideas", type: "audio" },
         { text: "Create visuals/presentations", type: "visual" },
         { text: "Take notes/write content", type: "read" },
-        { text: "Handle practical tasks", type: "active" },
+        { text: "Handle practical tasks", type: "practice" },
       ],
     },
     {
@@ -132,7 +200,7 @@
         { text: "Too much reading", type: "audio" },
         { text: "No visuals", type: "visual" },
         { text: "Only listening", type: "read" },
-        { text: "No hands-on work", type: "active" },
+        { text: "No hands-on work", type: "practice" },
       ],
     },
     {
@@ -141,7 +209,7 @@
         { text: "Explain clearly through speech", type: "audio" },
         { text: "Use many visuals and examples", type: "visual" },
         { text: "Provide detailed notes", type: "read" },
-        { text: "Give activities, experiments, tests", type: "active" },
+        { text: "Give activities, experiments, tests", type: "practice" },
       ],
     },
   ];
@@ -161,123 +229,63 @@
       scores[a] > scores[b] ? a : b,
     );
 
-    const learnerTypeMap = {
-      visual: {
-        type: "visual",
+    // Map winner to pre-selected options and result display
+    if (winner === "visual") {
+      learningStyles = ["visual", "video"];
+      learnerType = {
         label: "Visual Learner",
         icon: "👁️",
         description:
           "You learn best through images, diagrams, charts, and videos.",
-      },
-      audio: {
-        type: "audio",
+      };
+    } else if (winner === "audio") {
+      learningStyles = ["audio"];
+      learnerType = {
         label: "Audio Learner",
         icon: "🎧",
         description:
           "You learn best by listening, discussing, and explaining ideas.",
-      },
-      read: {
-        type: "read",
+      };
+    } else if (winner === "read") {
+      learningStyles = ["read"];
+      learnerType = {
         label: "Reader / Writer",
         icon: "📚",
         description:
           "You prefer reading texts, taking detailed notes, and writing summaries.",
-      },
-      active: {
-        type: "active",
+      };
+    } else {
+      // practice
+      learningStyles = ["practice"];
+      learnerType = {
         label: "Active (Kinesthetic) Learner",
         icon: "🤸",
         description:
           "You learn best by doing, moving, building, and practicing.",
-      },
-    };
-
-    learnerType = learnerTypeMap[winner];
+      };
+    }
 
     step = "result";
-    saveQuizResult(winner, learnerType);
-  }
-
-  async function saveQuizResult(winner, learnerType) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/quiz/submit`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ winner, learnerType }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      console.log("Quiz saved");
-    } catch (error) {
-      console.error("Error saving quiz result:", error);
-      alert("Failed to save quiz result. Please try again.");
-    }
-  }
-
-  async function createSession() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/session/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          petName,
-          petEmoji,
-          learnerType,
-          searchQuery,
-          userNotes: notes, // user-provided notes
-          generatedNotes, // dynamically generated notes
-          uploadedFileNames: uploadedFiles.map((file) => file.name), // just send names for now
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      console.log("Session created");
-    } catch (error) {
-      console.error("Error creating session:", error);
-      alert("Failed to create session. Please try again.");
-    }
   }
 
   function proceedToAdopt() {
     step = "adopt";
   }
 
-  async function adoptPet() {
+  function adoptPet() {
     if (!petName || !petName.trim()) {
       alert("Please give your study buddy a name!");
       return;
     }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/pet/adopt`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ petName, petEmoji }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      console.log("Pet adopted");
-      step = "setup";
-    } catch (error) {
-      console.error("Error adopting pet:", error);
-      alert("Failed to adopt pet. Please try again.");
-    }
+    step = "setup";
   }
+
+  const durationOptions = ["30 min", "1 hour", "2 hours", "Custom"];
+  const fragilityOptions = [
+    { label: "Resilient", icon: "🛡️", desc: "Harder to lose health" },
+    { label: "Normal", icon: "❤️", desc: "Standard health loss" },
+    { label: "Sensitive", icon: "💔", desc: "Needs extra care & focus" },
+  ];
 
   function handleFileSelect(event) {
     const files = Array.from(event.target.files);
@@ -311,355 +319,6 @@
   function removeFile(fileToRemove) {
     uploadedFiles = uploadedFiles.filter((file) => file !== fileToRemove);
   }
-
-  // --- Session lifecycle functions ---
-
-  function startSession() {
-    if (uploadedFiles.length === 0 && !searchQuery) {
-      // Allow starting without files if there's a search query
-      alert("Please upload files or enter a topic to start.");
-      return;
-    }
-
-    // 1. Determine Topic from File if no explicit query
-    if (searchQuery === "" && uploadedFiles.length > 0) {
-      const fileName = uploadedFiles[0].name;
-      searchQuery = fileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-    } else if (searchQuery === "" && uploadedFiles.length === 0) {
-      searchQuery = "General Study Session"; // Fallback if neither is provided
-    }
-
-    // 2. Start Analysis Simulation
-    step = "analyzing";
-    scrapeProgress = 0;
-
-    const interval = setInterval(() => {
-      scrapeProgress += 5;
-      if (scrapeProgress >= 100) {
-        clearInterval(interval);
-        enterSession();
-      }
-    }, 100);
-  }
-
-  function enterSession() {
-    step = "session";
-    isSessionActive = true;
-    distractionCount = 0; // Reset distraction count for new session
-    generatedNotes = generateLearningContent(learnerType, searchQuery); // Generate learning content
-    console.log("Notes generated"); // Log that notes have been generated
-    createSession(); // Call API to create session
-
-    // Start Pet Health Logic (healing while studying)
-    healthInterval = setInterval(() => {
-      if (!document.hidden && isSessionActive && !petDies && petHealth < 100) {
-        petHealth = Math.min(100, petHealth + 1);
-      }
-    }, 5000);
-
-    startFocusTimer(); // Start the 30-second focus timer
-
-    // Add distraction listeners
-    if (typeof window !== "undefined") {
-      document.addEventListener("visibilitychange", handleVisibilityChange);
-      window.addEventListener("blur", handleBlur);
-    }
-  }
-
-  function startFocusTimer() {
-    if (focusTimer) clearTimeout(focusTimer); // Clear any existing timer
-    focusTimer = setTimeout(() => {
-      if (!document.hidden && isSessionActive && !petDies) {
-        distractionCount = 0;
-        petHealth = 100;
-        petDies = false;
-        console.log("Sustained focus for 30 seconds: Pet fully revived!");
-      }
-    }, 30000); // 30 seconds
-  }
-
-  function handleVisibilityChange() {
-    if (document.hidden && isSessionActive && !petDies) {
-      punishDistraction();
-    } else if (!document.hidden && isSessionActive && !petDies) {
-      startFocusTimer(); // Restart timer if tab becomes visible and not dead
-    }
-  }
-
-  function handleBlur() {
-    if (isSessionActive && !petDies) {
-      punishDistraction();
-    } else if (isSessionActive && !petDies) {
-      startFocusTimer(); // Restart timer if window gains focus and not dead
-    }
-  }
-
-  function punishDistraction() {
-    distractionCount++;
-    console.log("Distraction detected:", distractionCount);
-
-    if (focusTimer) clearTimeout(focusTimer); // Clear previous sustained focus timer
-    if (!petDies) {
-      // Only restart if pet is not dead
-      startFocusTimer(); // Restart timer for next 30 seconds focus
-    }
-
-    if (distractionCount === 1) {
-      petHealth = Math.max(0, petHealth - 40);
-    } else if (distractionCount === 2) {
-      petHealth = Math.max(0, petHealth - 40);
-    } else if (distractionCount >= 3) {
-      petHealth = 0;
-      petDies = true;
-      isSessionActive = false; // Session ends when pet dies
-      if (healthInterval) clearInterval(healthInterval); // Stop health gain
-      if (focusTimer) clearTimeout(focusTimer); // Clear focus timer on death
-    }
-  }
-
-  function generateLearningContent(learnerType, topic) {
-    let content = "";
-    // Sanitize topic for display and dynamic content creation
-    const displayTopic =
-      topic.length > 30 ? topic.substring(0, 27) + "..." : topic;
-
-    switch (learnerType.type) {
-      case "visual":
-        content = `
-          <div class="card resource-card">
-            <h3>Visual Summary: ${displayTopic}</h3>
-            <p>Here's a visual breakdown to help you grasp <strong>${displayTopic}</strong>:</p>
-
-            <h4>Flow Diagram:</h4>
-            <pre class="code-block">
-  ┌─────────────────┐
-  │  Main Topic: ${displayTopic}   │
-  └─────────┬───────┘
-            │
-  ┌─────────▼─────────┐
-  │   Concept A (Key) │
-  └─────────┬─────────┘
-            │
-            │  Relates to
-            │  (via X)
-            ▼
-  ┌─────────▼─────────┐
-  │   Concept B (Sub) │
-  └─────────┬─────────┘
-            │
-            │  Leads to
-            │  (result in Y)
-            ▼
-  ┌─────────▼─────────┐
-  │   Application Z   │
-  └─────────────────┘
-            </pre>
-
-            <h4>Step-by-Step Diagram:</h4>
-            <ol class="step-diagram">
-              <li><strong>Step 1: Understand the Basics</strong>
-                <p>Start by identifying the core definitions and principles of ${displayTopic}.</p>
-                <img src="https://via.placeholder.com/150/FFC0CB/000000?text=Basic+Concept" alt="Basic Concept Illustration" class="concept-image">
-              </li>
-              <li><strong>Step 2: Explore Connections</strong>
-                <p>Map out how different sub-topics within ${displayTopic} interrelate.</p>
-                <img src="https://via.placeholder.com/150/ADD8E6/000000?text=Connections+Map" alt="Connections Map Illustration" class="concept-image">
-              </li>
-              <li><strong>Step 3: Practical Application</strong>
-                <p>See how ${displayTopic} is applied in real-world scenarios or problems.</p>
-                <img src="https://via.placeholder.com/150/90EE90/000000?text=Application+Diagram" alt="Application Diagram Illustration" class="concept-image">
-              </li>
-            </ol>
-
-            <h4>Concept Mapping Structure:</h4>
-            <p>Imagine a central idea branching out. For ${displayTopic}:</p>
-            <ul class="concept-map-list">
-              <li><strong>Central Idea:</strong> ${displayTopic}
-                <ul>
-                  <li><strong>Branch 1 (Foundation):</strong> Key Theories
-                    <ul>
-                      <li>Sub-point 1.1: Definition X</li>
-                      <li>Sub-point 1.2: Principle Y</li>
-                    </ul>
-                  </li>
-                  <li><strong>Branch 2 (Components):</strong> Core Elements
-                    <ul>
-                      <li>Sub-point 2.1: Element A</li>
-                      <li>Sub-point 2.2: Element B</li>
-                    </ul>
-                  </li>
-                  <li><strong>Branch 3 (Outcome):</strong> Impact & Use Cases
-                    <ul>
-                      <li>Sub-point 3.1: Effect P</li>
-                      <li>Sub-point 3.2: Scenario Q</li>
-                    </ul>
-                  </li>
-                </ul>
-              </li>
-            </ul>
-            <p>Focus on creating mental images or actual sketches!</p>
-          </div>
-        `;
-        break;
-      case "audio":
-        content = `
-          <div class="card resource-card">
-            <h3>🎧 Podcast Script: Unpacking ${displayTopic}</h3>
-            <p class="conversational-intro">
-              "Welcome to 'MindFlow Insights,' your auditory guide to mastering new concepts.
-              Today, we're diving deep into <strong>${displayTopic}</strong>.
-              Imagine you're having a coffee with an expert who's about to demystify this for you..."
-            </p>
-
-            <h4>Main Segment: Conversational Explanation</h4>
-            <p>
-              "So, let's start with the big picture. What *is* ${displayTopic}?
-              At its heart, it's about [explain core concept in simple, engaging terms].
-              Think of it like [analogy]. If that's the foundation, then [sub-concept] is like [another analogy].
-              It’s less about memorizing facts and more about understanding the rhythm and flow of these ideas.
-              The most common question people ask is, 'How does X relate to Y?' Well, the connection is [explain connection]."
-            </p>
-            <p>
-              "When you hear people talk about ${displayTopic}, they often bring up [common term].
-              But what they really mean is [clarify misunderstanding]. It's a subtle distinction, but crucial."
-            </p>
-
-            <h4>Quick Recap (Audio Bites):</h4>
-            <ul>
-              <li><strong>Key Idea 1:</strong> ${displayTopic} as [brief verbal summary].</li>
-              <li><strong>Core Principle:</strong> Remember [main principle] – it’s the beat of the topic.</li>
-              <li><strong>Actionable Insight:</strong> How to apply [specific part] in conversation.</li>
-            </ul>
-
-            <h4>Reflection Questions (Think & Speak):</h4>
-            <ul class="reflection-questions">
-              <li>How would you explain <strong>${displayTopic}</strong> to a friend who knows nothing about it?</li>
-              <li>What part of <strong>${displayTopic}</strong> resonated most with you, and why?</li>
-              <li>Can you think of a real-world scenario where you've experienced an aspect of <strong>${displayTopic}</strong>, even unknowingly?</li>
-              <li>What's one question you still have after this explanation?</li>
-            </ul>
-            <p class="call-to-action">
-              Try vocalizing your answers or discussing them with someone!
-            </p>
-          </div>
-        `;
-        break;
-      case "read":
-        content = `
-          <div class="card resource-card">
-            <h3>📚 Detailed Notes: Mastering ${displayTopic}</h3>
-            <p>A comprehensive written guide designed for in-depth understanding and retention.</p>
-
-            <h4>1. Introduction to ${displayTopic}</h4>
-            <p><strong>Definition:</strong> ${displayTopic} can be formally defined as [insert precise definition here, referencing key terms]. It represents [brief overview of its significance or function].</p>
-            <p><strong>Context:</strong> This concept is typically encountered in [field/domain] and is fundamental to understanding [broader subject].</p>
-
-            <h4>2. Core Principles & Components</h4>
-            <ul>
-              <li><strong>Principle Alpha:</strong> [Detailed explanation of Principle Alpha, including its origin and implications].
-                <ul>
-                  <li><em>Sub-point:</em> How Principle Alpha interacts with [related concept].</li>
-                  <li><em>Example:</em> An illustration of Principle Alpha in action [provide a concise example].</li>
-                </ul>
-              </li>
-              <li><strong>Principle Beta:</strong> [Detailed explanation of Principle Beta, focusing on its mechanism and purpose].
-                <ul>
-                  <li><em>Sub-point:</em> Common misconceptions regarding Principle Beta.</li>
-                  <li><em>Application:</em> Where Principle Beta is most effectively utilized.</li>
-                </ul>
-              </li>
-            </ul>
-
-            <h4>3. Key Definitions:</h4>
-            <dl class="definitions-list">
-              <dt>Term 1:</dt>
-              <dd>[Clear and concise definition of Term 1].</dd>
-              <dt>Term 2:</dt>
-              <dd>[Clear and concise definition of Term 2].</dd>
-              <dt>Term 3:</dt>
-              <dd>[Clear and concise definition of Term 3].</dd>
-            </dl>
-
-            <h4>4. Bullet Breakdown: Key Takeaways</h4>
-            <ul>
-              <li>${displayTopic} is essential for [reason 1].</li>
-              <li>It operates on the basis of [mechanism/theory].</li>
-              <li>Distinguish between [common confusion 1] and [common confusion 2].</li>
-              <li>Remember the three primary applications: [App 1], [App 2], and [App 3].</li>
-            </ul>
-
-            <h4>5. Summary</h4>
-            <p>In summary, <strong>${displayTopic}</strong> is a pivotal concept in [field], characterized by [key features]. Its mastery requires understanding its core principles, precise definitions, and practical applications in [context]. Effective engagement with this material will solidify your comprehension.</p>
-            <p class="call-to-action">
-              Read these notes carefully, highlight key sections, and try to summarize each section in your own words!
-            </p>
-          </div>
-        `;
-        break;
-      case "active":
-        content = `
-          <div class="card resource-card">
-            <h3>🤸 Active Learning Challenges: Engage with ${displayTopic}</h3>
-            <p>Put your knowledge into action with these interactive tasks and exercises!</p>
-
-            <h4>Mini-Exercise: Diagram Completion</h4>
-            <p><strong>Task:</strong> On a piece of paper, draw a simple diagram illustrating the main components or stages of <strong>${displayTopic}</strong>. Don't look at your notes!</p>
-            <details>
-              <summary>Click to reveal key components (after your attempt!)</summary>
-              <p><em>(Hint: Consider the flow, inputs, and outputs of the topic.)</em></p>
-              <ul>
-                <li>Component 1: [Placeholder]</li>
-                <li>Component 2: [Placeholder]</li>
-                <li>Component 3: [Placeholder]</li>
-              </ul>
-            </details>
-
-            <h4>Scenario-Based Task: Problem Solver</h4>
-            <p><strong>Scenario:</strong> You are [role] facing [problem] related to <strong>${displayTopic}</strong>. Describe the steps you would take to address this situation using your understanding of the topic.</p>
-            <details>
-              <summary>Brainstorming Prompts (Click to reveal)</summary>
-              <p>Consider:</p>
-              <ul>
-                <li>What data would you need?</li>
-                <li>Which principles of ${displayTopic} apply directly?</li>
-                <li>What are the potential pitfalls, and how would you mitigate them?</li>
-              </ul>
-            </details>
-
-            <h4>Interactive Challenge: Quick Quiz</h4>
-            <p>Answer these questions without consulting your notes. Be honest with yourself!</p>
-            <ol>
-              <li>What is the primary function of [a key term in ${displayTopic}]?</li>
-              <li>Describe a situation where an understanding of <strong>${displayTopic}</strong> is critical.</li>
-              <li>If [condition], what outcome would you expect based on <strong>${displayTopic}</strong>?</li>
-            </ol>
-            <details>
-              <summary>Self-Check Answers (Click to reveal)</summary>
-              <p><em>(Provide concise answers here for self-assessment)</em></p>
-            </details>
-
-            <h4>"Try This Now" Activity: Live Experiment / Observation</h4>
-            <p><strong>Activity:</strong> Find a real-world example of <strong>${displayTopic}</strong> around you (e.g., observe a system, a process, a conversation). Spend 5 minutes analyzing it through the lens of what you've learned.</p>
-            <p class="call-to-action">
-              The best way to learn is by doing! Actively engage with these prompts.
-            </p>
-          </div>
-        `;
-        break;
-      default:
-        content = `<div class="card resource-card"><h3>General Study Guide: ${displayTopic}</h3><p>A comprehensive overview for your study session on ${displayTopic}.</p></div>`;
-    }
-    return content;
-  }
-
-  onDestroy(() => {
-    if (typeof window !== "undefined") {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("blur", handleBlur);
-      clearInterval(healthInterval);
-      clearInterval(focusTimer); // Clear focus timer on destroy
-    }
-  });
 </script>
 
 <main
@@ -669,7 +328,7 @@
   {#if step === "auth"}
     <div class="auth-container">
       <header class="hero">
-        <h1 class="title">Focus Pet</h1>
+        <h1 class="title">AI Study Commander</h1>
         <p class="subtitle">Focus responsibly. Save your pet.</p>
       </header>
 
@@ -679,20 +338,6 @@
         </h2>
 
         <form class="auth-form" on:submit|preventDefault={handleAuth}>
-          {#if isSignUp}
-            <div class="field-group">
-              <label for="username">Full Name</label>
-              <input
-                type="text"
-                id="username"
-                bind:value={username}
-                required
-                placeholder="John Doe"
-                class="text-input"
-              />
-            </div>
-          {/if}
-
           <div class="field-group">
             <label for="email">Email</label>
             <input
@@ -777,9 +422,9 @@
       </header>
 
       <div class="card result-card">
-        <div class="result-icon">{learnerType.icon}</div>
-        <h2 class="result-title">{learnerType.label}</h2>
-        <p class="result-description">{learnerType.description}</p>
+        <div class="result-icon">{learnerType?.icon}</div>
+        <h2 class="result-title">{learnerType?.label}</h2>
+        <p class="result-description">{learnerType?.description}</p>
 
         <button class="cta-btn" on:click={proceedToAdopt}>
           Find Your Companion
@@ -890,7 +535,7 @@
       <div class="setup-content">
         <!-- Hero Section -->
         <header class="hero" style="text-align: left; align-items: flex-start;">
-          <h1 class="title">Focus Pet</h1>
+          <h1 class="title">AI Study Commander</h1>
           <p class="subtitle">
             Your autonomous learning coach that adapts to how you learn best.
           </p>
@@ -947,17 +592,6 @@
                 </div>
               {/if}
             </div>
-          </div>
-
-          <div class="field-group">
-            <label for="search-query">Learning Topic (Optional)</label>
-            <input
-              type="text"
-              id="search-query"
-              bind:value={searchQuery}
-              placeholder="e.g. Quantum Physics, Impressionist Art"
-              class="text-input"
-            />
           </div>
 
           <!-- Notes/Comment Section -->
@@ -1036,24 +670,102 @@
       <div class="setup-content">
         <header class="dashboard-header">
           <div class="header-info">
-            <span class="badge">{learnerType.label}</span>
+            <span class="badge">{learnerType?.label || "General Learner"}</span>
             <h1 class="session-title">{searchQuery}</h1>
           </div>
           <div class="timer-badge">Session Active ⚡</div>
         </header>
 
         <!-- Dynamic Resource Content -->
-        <div class="resource-section">
-          <h3 class="section-title">Your Personalized Learning Material</h3>
-          {@html generatedNotes}
-        </div>
+
+        {#if learnerType?.label === "Visual Learner" || learnerType?.label === "Audio Learner"}
+          <!-- Video / Audio Feed -->
+          <div class="resource-section">
+            <h3 class="section-title">
+              {learnerType?.label === "Visual Learner"
+                ? "📺 Curated Videos"
+                : "🎧 Podcasts & Lectures"}
+            </h3>
+            <div class="video-grid">
+              <!-- Mock Videos -->
+              <div class="video-card">
+                <div class="video-thumbnail">▶</div>
+                <div class="video-info">
+                  <h4>Introduction to {searchQuery}</h4>
+                  <p>10:24 • CrashCourse</p>
+                </div>
+              </div>
+              <div class="video-card">
+                <div class="video-thumbnail">▶</div>
+                <div class="video-info">
+                  <h4>Advanced Concepts in {searchQuery}</h4>
+                  <p>15:30 • Khan Academy (Simulated)</p>
+                </div>
+              </div>
+              <div class="video-card">
+                <div class="video-thumbnail">▶</div>
+                <div class="video-info">
+                  <h4>{searchQuery} Explained Simply</h4>
+                  <p>08:45 • TED-Ed</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        {/if}
+
+        {#if learnerType?.label === "Reader / Writer" || !learnerType}
+          <!-- Text Content -->
+          <div class="resource-section">
+            <h3 class="section-title">📚 Smart Summary & Notes</h3>
+            <div class="text-content card">
+              <p>
+                <strong>Overview:</strong>
+                {searchQuery} is a fundamental concept in this field. It involves
+                understanding the core principles and applying them to solve complex
+                problems.
+              </p>
+              <ul>
+                <li>Key Concept 1: The foundation of {searchQuery}.</li>
+                <li>Key Concept 2: Practical applications and case studies.</li>
+                <li>Key Concept 3: Future trends and developments.</li>
+              </ul>
+              <p>
+                <em
+                  >(Content generated from uploaded materials and web sources)</em
+                >
+              </p>
+            </div>
+          </div>
+        {/if}
+
+        {#if learnerType?.label === "Active (Kinesthetic) Learner"}
+          <!-- Practice Content -->
+          <div class="resource-section">
+            <h3 class="section-title">🧪 Practical Exercises</h3>
+            <div class="quiz-card card">
+              <h4>Quick Check: {searchQuery}</h4>
+              <p>Test your knowledge with these generated questions.</p>
+              <button class="cta-btn" style="margin-top: 1rem; font-size: 1rem;"
+                >Start Practice Quiz</button
+              >
+            </div>
+
+            <div class="card" style="margin-top: 1rem;">
+              <h4>Hands-on Task</h4>
+              <p>
+                Try to implement or build a model regarding {searchQuery} using the
+                provided diagram.
+              </p>
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
   {/if}
 
   <!-- Footer -->
   <footer class="footer">
-    <p>AI Study Commander • TinkerHack 2026</p>
+    <p>No signup required • Start instantly</p>
   </footer>
 </main>
 
@@ -1080,34 +792,35 @@
 
   .title {
     font-size: 3rem;
-    color: #1e293b; /* Slate 800 */
+    background: linear-gradient(to right, #4f46e5, #9333ea);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
     letter-spacing: -0.02em;
     margin-bottom: 0.25rem;
-    text-shadow: 0 2px 0 rgba(255, 255, 255, 0.5);
   }
 
   .subtitle {
     font-size: 1.25rem;
     font-weight: 500;
-    color: #64748b; /* Slate 500 */
+    color: #334155;
     margin: 0;
   }
 
-  /* Card Component - Glassmorphism */
+  /* Card Component */
   .card {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: white;
     width: 100%;
     max-width: 600px;
     padding: 2.5rem;
     border-radius: 1.5rem;
-    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
+    box-shadow:
+      0 20px 25px -5px rgba(0, 0, 0, 0.1),
+      0 10px 10px -5px rgba(0, 0, 0, 0.04);
     display: flex;
     flex-direction: column;
     gap: 2rem;
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    color: #334155;
+    border: 1px solid #f1f5f9;
   }
 
   .field-group {
@@ -1123,7 +836,7 @@
   label {
     font-size: 0.95rem;
     font-weight: 600;
-    color: #475569; /* Slate 600 */
+    color: #475569;
     margin-left: 0.25rem;
     padding: 0;
   }
@@ -1133,18 +846,13 @@
     width: 100%;
     padding: 1rem 1.25rem;
     font-size: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    border: 2px solid #e2e8f0;
     border-radius: 1rem;
     outline: none;
     transition: all 0.2s;
-    background: rgba(255, 255, 255, 0.5);
-    color: #1e293b;
+    background: #f8fafc;
     box-sizing: border-box; /* Crucial for full width */
     font-family: inherit; /* Ensure textarea inherits font */
-  }
-
-  .text-input::placeholder {
-    color: #94a3b8;
   }
 
   .text-input.textarea {
@@ -1153,9 +861,9 @@
   }
 
   .text-input:focus {
-    border-color: #ec4899; /* Pink 500 */
-    background: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
+    border-color: #6366f1;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
   }
 
   /* Field: Duration Pill Buttons */
@@ -1240,24 +948,24 @@
 
   /* Field: File Upload */
   .upload-area {
-    border: 2px dashed rgba(71, 85, 105, 0.4); /* Slate 600 */
+    border: 2px dashed #cbd5e1;
     border-radius: 1rem;
     padding: 2rem;
     text-align: center;
     cursor: pointer;
     transition: all 0.2s ease;
-    background: rgba(255, 255, 255, 0.5);
+    background: #f8fafc;
   }
 
   .upload-area:hover {
-    border-color: #ec4899; /* Pink 500 */
-    background: rgba(255, 255, 255, 0.8);
+    border-color: #6366f1;
+    background: #f1f5f9;
   }
 
   .upload-area:focus {
     outline: none;
-    border-color: #ec4899;
-    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
+    border-color: #6366f1;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
   }
 
   .upload-placeholder {
@@ -1265,7 +973,7 @@
     flex-direction: column;
     align-items: center;
     gap: 0.5rem;
-    color: #475569; /* Slate 600 */
+    color: #64748b;
   }
 
   .upload-icon {
@@ -1274,7 +982,7 @@
 
   .file-types {
     font-size: 0.8rem;
-    color: #64748b;
+    color: #94a3b8;
   }
 
   .file-list {
@@ -1289,8 +997,8 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem;
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: white;
+    border: 1px solid #e2e8f0;
     border-radius: 0.75rem;
     text-align: left;
   }
@@ -1298,7 +1006,7 @@
   .file-name {
     flex: 1;
     font-size: 0.9rem;
-    color: #1e293b;
+    color: #334155;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1319,12 +1027,12 @@
 
   .remove-btn:hover {
     background: #f1f5f9;
-    color: #ef4444; /* Red 500 */
+    color: #ef4444;
   }
 
   .add-more {
     font-size: 0.85rem;
-    color: #06b6d4; /* Cyan 500 */
+    color: #6366f1;
     font-weight: 500;
     margin-top: 0.5rem;
   }
@@ -1337,75 +1045,21 @@
     font-size: 1.1rem;
     font-weight: 600;
     color: white;
-    background: linear-gradient(135deg, #ec4899 0%, #f59e0b 100%);
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     border: none;
     border-radius: 1rem;
-    box-shadow: 0 10px 20px -5px rgba(236, 72, 153, 0.4);
+    box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
     transition: all 0.3s ease;
   }
 
   .cta-btn:hover {
-    box-shadow: 0 15px 25px -5px rgba(236, 72, 153, 0.5);
+    box-shadow: 0 20px 25px -5px rgba(79, 70, 229, 0.4);
     transform: translateY(-2px) scale(1.01);
     filter: brightness(1.1);
   }
 
   .cta-btn:active {
     transform: translateY(0) scale(0.99);
-  }
-
-  /* ... (keeping intermediate styles if any) ... */
-
-  /* Auth Page Styles */
-  .auth-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2rem;
-    width: 100%;
-    max-width: 400px;
-  }
-
-  .auth-card {
-    padding: 2rem;
-  }
-
-  .auth-title {
-    text-align: center;
-    font-size: 1.5rem;
-    color: #1e293b; /* Slate 800 */
-    margin-bottom: 1.5rem;
-  }
-
-  .auth-switch {
-    text-align: center;
-    font-size: 0.9rem;
-    margin-top: 1.5rem;
-    color: #9ca3af; /* Gray 400 */
-  }
-
-  .link-btn {
-    background: none;
-    border: none;
-    color: #22d3ee; /* Neon Cyan */
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: underline;
-    padding: 0;
-    font-size: inherit;
-  }
-
-  .link-btn:hover {
-    color: #a78bfa; /* Purple Glow */
-  }
-
-  .auth-preview {
-    text-align: center;
-    animation: float 3s ease-in-out infinite;
-  }
-
-  .auth-preview p {
-    color: #9ca3af;
   }
 
   /* Footer */
@@ -1452,7 +1106,7 @@
   .question-text {
     font-size: 1.5rem;
     font-weight: 600;
-    color: #1e293b; /* Slate 800 */
+    color: #1e293b;
     margin-bottom: 2rem;
     line-height: 1.3;
   }
@@ -1480,7 +1134,7 @@
     font-size: 2rem;
     font-weight: 700;
     margin: 0;
-    background: linear-gradient(to right, #ec4899, #f59e0b);
+    background: linear-gradient(to right, #4f46e5, #9333ea);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1510,8 +1164,8 @@
     padding: 1.25rem;
     font-size: 1.1rem;
     color: #334155;
-    background: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: white;
+    border: 2px solid #e2e8f0;
     border-radius: 1rem;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1520,17 +1174,17 @@
   }
 
   .quiz-option:hover {
-    border-color: #ec4899; /* Pink 500 */
-    background: #fff1f2; /* Rose 50 */
-    color: #be185d;
+    border-color: #6366f1;
+    background: #eef2ff;
+    color: #4f46e5;
     transform: translateY(-2px);
-    box-shadow: 0 4px 6px -1px rgba(236, 72, 153, 0.1);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   }
 
   .progress-bar {
     width: 200px;
     height: 8px;
-    background: #e2e8f0; /* Slate 200 */
+    background: #e2e8f0;
     border-radius: 4px;
     margin: 1rem auto 0;
     overflow: hidden;
@@ -1538,7 +1192,7 @@
 
   .progress-fill {
     height: 100%;
-    background: #ec4899; /* Pink 500 */
+    background: #4f46e5;
     transition: width 0.3s ease;
   }
   /* Pet Adoption Styles */
@@ -1562,21 +1216,21 @@
     border: 2px solid transparent;
     border-radius: 50%;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.8); /* Gray 800 */
+    background: #f1f5f9;
     transition: all 0.2s ease;
   }
 
   .pet-option-btn:hover {
     transform: scale(1.1);
-    background: #fff1f2; /* Rose 50 */
+    background: #e2e8f0;
   }
 
   .pet-option-btn.selected {
-    border-color: #ec4899;
-    background: rgba(236, 72, 153, 0.1);
-    box-shadow: 0 0 15px rgba(236, 72, 153, 0.2);
+    border-color: #6366f1;
+    background: #eef2ff;
+    transform: scale(1.15);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   }
-
   .pet-container {
     position: relative;
     width: 200px;
@@ -1660,7 +1314,7 @@
   }
 
   .pet-sidebar {
-    width: 350px;
+    width: 250px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1671,7 +1325,7 @@
   }
 
   .pet-mascot {
-    font-size: 12rem;
+    font-size: 8rem;
     animation: float 4s ease-in-out infinite;
     cursor: grab;
     transition: transform 0.2s;
@@ -1742,7 +1396,7 @@
     }
 
     .pet-mascot {
-      font-size: 6rem;
+      font-size: 4rem;
     }
 
     .pet-bubble {
@@ -1759,27 +1413,26 @@
     }
   }
   .health-container {
-    width: 90%;
+    width: 60%;
     margin-top: -1rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
     position: relative;
     z-index: 5;
   }
 
   .health-label {
-    font-size: 1.1rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: #475569;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
   }
 
   .health-bar-bg {
     width: 100%;
-    height: 24px;
+    height: 10px;
     background: #e2e8f0;
-    border-radius: 12px;
+    border-radius: 5px;
     overflow: hidden;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   .health-bar-fill {
@@ -1818,14 +1471,13 @@
   }
 
   /* Session Dashboard */
-  /* Session Dashboard */
   .dashboard-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 2rem;
     padding-bottom: 1rem;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid #e2e8f0;
   }
 
   .header-info {
@@ -1837,8 +1489,8 @@
 
   .badge {
     display: inline-block;
-    background: rgba(236, 72, 153, 0.1);
-    color: #ec4899; /* Pink 500 */
+    background: #eef2ff;
+    color: #4f46e5;
     padding: 0.25rem 0.75rem;
     border-radius: 1rem;
     font-size: 0.8rem;
@@ -1847,8 +1499,8 @@
   }
 
   .timer-badge {
-    background: rgba(16, 185, 129, 0.1);
-    color: #10b981; /* Green 500 */
+    background: #ecfdf5;
+    color: #059669;
     padding: 0.5rem 1rem;
     border-radius: 2rem;
     font-weight: 600;
@@ -1880,45 +1532,42 @@
 
   .video-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 1.5rem;
   }
 
   .video-card {
-    background: rgba(255, 255, 255, 0.8);
+    background: white;
     border-radius: 1rem;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    border: 1px solid #e2e8f0;
     transition: transform 0.2s;
     cursor: pointer;
   }
 
   .video-card:hover {
     transform: translateY(-5px);
-    border-color: #ec4899;
-    box-shadow: 0 4px 6px -1px rgba(236, 72, 153, 0.15);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   }
 
   .video-thumbnail {
-    width: 100%;
-    aspect-ratio: 16/9;
-    background: rgba(0, 0, 0, 0.05);
+    height: 120px;
+    background: #1e293b;
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #64748b;
     font-size: 2rem;
   }
 
   .video-info {
     padding: 1rem;
-    text-align: left;
   }
 
   .video-info h4 {
     font-size: 0.95rem;
     margin: 0 0 0.5rem 0;
-    color: #1e293b;
+    color: #0f172a;
   }
 
   .video-info p {
@@ -2005,5 +1654,65 @@
 
   .pet-info-card li {
     margin-bottom: 0.25rem;
+  }
+
+  /* Auth Page Styles */
+  .auth-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .auth-card {
+    padding: 2rem;
+  }
+
+  .auth-title {
+    text-align: center;
+    font-size: 1.5rem;
+    color: #1e293b;
+    margin-bottom: 1.5rem;
+  }
+
+  .auth-switch {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-top: 1.5rem;
+    color: #64748b;
+  }
+
+  .link-btn {
+    background: none;
+    border: none;
+    color: #4f46e5;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    font-size: inherit;
+  }
+
+  .link-btn:hover {
+    color: #4338ca;
+  }
+
+  .auth-preview {
+    text-align: center;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+    100% {
+      transform: translateY(0px);
+    }
   }
 </style>
