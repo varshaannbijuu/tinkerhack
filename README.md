@@ -212,9 +212,7 @@ Create study session
 
 ## Project Demo
 
-### Video
-
-*(Add demo video link — YouTube / Drive)*
+Google Drive Link - https://drive.google.com/drive/folders/1gk1OPQEfAyicRtDrLGeMlcML1WyjHZyM
 
 **Video demonstrates:**
 
