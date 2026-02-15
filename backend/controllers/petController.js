@@ -61,7 +61,7 @@ exports.updatePetState = async (req, res) => {
         }
 
         const pet = user.pet;
-        
+
         // Update tab switch count
         pet.tabSwitchCount = tabSwitchCount;
 
@@ -70,12 +70,12 @@ exports.updatePetState = async (req, res) => {
         // A more robust logic would track the previous count.
         // For this hackathon, we assume any update call with tabSwitchCount > pet.tabSwitchCount is a new switch.
         // The rule is "After 3 tab switches -> pet dies"
-        
+
         if (tabSwitchCount > pet.tabSwitchCount) {
-             pet.focusHP -= 34; // 3 switches and HP is ~ 0
+            pet.focusHP -= 34; // 3 switches and HP is ~ 0
         }
-        
-        if(focused) {
+
+        if (focused) {
             pet.focusHP = Math.min(100, pet.focusHP + 5);
         }
 
@@ -104,14 +104,14 @@ exports.revivePet = async (req, res) => {
 
     try {
         const user = await User.findById(userId);
-        if(!user || !user.pet) {
+        if (!user || !user.pet) {
             return res.status(404).json({ msg: 'User or pet not found' });
         }
 
         user.pet.alive = true;
         user.pet.focusHP = 50; // Revive with half HP
         user.pet.tabSwitchCount = 0;
-        
+
         await user.save();
         res.json(user.pet);
 

@@ -5,7 +5,7 @@
 
   let step = "auth"; // 'auth', 'quiz', 'result', 'adopt', 'setup', 'session', 'analyzing'
   let currentQuestion = 0;
-  let scores = { audio: 0, visual: 0, read: 0, practice: 0 };
+  let scores = { audio: 0, visual: 0, read: 0, active: 0 };
   let learnerType = null; // { type: string, icon: string, description: string }
 
   // Auth State
@@ -19,6 +19,9 @@
       alert("Please fill in all fields");
       return;
     }
+    // Reset quiz state
+    currentQuestion = 0;
+    scores = { audio: 0, visual: 0, read: 0, practice: 0 };
     // Simulate auth success
     step = "quiz";
   }
@@ -34,7 +37,9 @@
   let petEmoji = "🐶";
   let petHealth = 100;
   let isSessionActive = false;
+  let petDies = false; // New: Flag for pet death
   let healthInterval;
+  let focusTimer; // New: Timer for sustained focus
   let distractionCount = 0; // New: counts tab switches/blurs
 
   const petOptions = [
@@ -55,7 +60,7 @@
         { text: "Listening to explanations", type: "audio" },
         { text: "Watching diagrams/videos", type: "visual" },
         { text: "Reading instructions or notes", type: "read" },
-        { text: "Trying it yourself", type: "practice" },
+        { text: "Trying it yourself", type: "active" },
       ],
     },
     {
@@ -64,7 +69,7 @@
         { text: "Explains verbally", type: "audio" },
         { text: "Uses charts, slides, drawings", type: "visual" },
         { text: "Gives written notes/textbook", type: "read" },
-        { text: "Makes you do activities", type: "practice" },
+        { text: "Makes you do activities", type: "active" },
       ],
     },
     {
@@ -73,7 +78,7 @@
         { text: "Someone telling you the route", type: "audio" },
         { text: "A map", type: "visual" },
         { text: "Written directions", type: "read" },
-        { text: "Going once with someone", type: "practice" },
+        { text: "Going once with someone", type: "active" },
       ],
     },
     {
@@ -82,7 +87,7 @@
         { text: "Repeat it aloud", type: "audio" },
         { text: "Visualize it in your mind", type: "visual" },
         { text: "Write it down", type: "read" },
-        { text: "Practice or act it out", type: "practice" },
+        { text: "Practice or act it out", type: "active" },
       ],
     },
     {
@@ -91,7 +96,7 @@
         { text: "Listening to lectures/podcasts", type: "audio" },
         { text: "Watching tutorials/videos", type: "visual" },
         { text: "Reading books/notes", type: "read" },
-        { text: "Solving problems/practicals", type: "practice" },
+        { text: "Solving problems/practicals", type: "active" },
       ],
     },
     {
@@ -100,7 +105,7 @@
         { text: "Remembering what you heard", type: "audio" },
         { text: "Seeing the page or diagram in your mind", type: "visual" },
         { text: "Remembering what you read", type: "read" },
-        { text: "Remembering what you practiced", type: "practice" },
+        { text: "Remembering what you practiced", type: "active" },
       ],
     },
     {
@@ -109,7 +114,7 @@
         { text: "Listen to someone explain", type: "audio" },
         { text: "Look at pictures/diagrams", type: "visual" },
         { text: "Read the manual carefully", type: "read" },
-        { text: "Start building immediately", type: "practice" },
+        { text: "Start building immediately", type: "active" },
       ],
     },
     {
@@ -118,7 +123,7 @@
         { text: "Discuss ideas", type: "audio" },
         { text: "Create visuals/presentations", type: "visual" },
         { text: "Take notes/write content", type: "read" },
-        { text: "Handle practical tasks", type: "practice" },
+        { text: "Handle practical tasks", type: "active" },
       ],
     },
     {
@@ -127,7 +132,7 @@
         { text: "Too much reading", type: "audio" },
         { text: "No visuals", type: "visual" },
         { text: "Only listening", type: "read" },
-        { text: "No hands-on work", type: "practice" },
+        { text: "No hands-on work", type: "active" },
       ],
     },
     {
@@ -136,7 +141,7 @@
         { text: "Explain clearly through speech", type: "audio" },
         { text: "Use many visuals and examples", type: "visual" },
         { text: "Provide detailed notes", type: "read" },
-        { text: "Give activities, experiments, tests", type: "practice" },
+        { text: "Give activities, experiments, tests", type: "active" },
       ],
     },
   ];
@@ -156,41 +161,34 @@
       scores[a] > scores[b] ? a : b,
     );
 
-    // Map winner to pre-selected options and result display
-    if (winner === "visual") {
-      learnerType = {
-        type: "visual", // Added for consistency and dynamic content generation
+    const learnerTypeMap = {
+      visual: {
+        type: "visual",
         label: "Visual Learner",
         icon: "👁️",
-        description:
-          "You learn best through images, diagrams, charts, and videos.",
-      };
-    } else if (winner === "audio") {
-      learnerType = {
-        type: "audio", // Added
+        description: "You learn best through images, diagrams, charts, and videos.",
+      },
+      audio: {
+        type: "audio",
         label: "Audio Learner",
         icon: "🎧",
-        description:
-          "You learn best by listening, discussing, and explaining ideas.",
-      };
-    } else if (winner === "read") {
-      learnerType = {
-        type: "read", // Added
+        description: "You learn best by listening, discussing, and explaining ideas.",
+      },
+      read: {
+        type: "read",
         label: "Reader / Writer",
         icon: "📚",
-        description:
-          "You prefer reading texts, taking detailed notes, and writing summaries.",
-      };
-    } else {
-      // practice
-      learnerType = {
-        type: "active", // Added
+        description: "You prefer reading texts, taking detailed notes, and writing summaries.",
+      },
+      active: {
+        type: "active",
         label: "Active (Kinesthetic) Learner",
         icon: "🤸",
-        description:
-          "You learn best by doing, moving, building, and practicing.",
-      };
-    }
+        description: "You learn best by doing, moving, building, and practicing.",
+      },
+    };
+
+    learnerType = learnerTypeMap[winner];
 
     step = "result";
     saveQuizResult(winner, learnerType);
@@ -198,7 +196,7 @@
 
   async function saveQuizResult(winner, learnerType) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/quiz/save`, {
+      const response = await fetch(`${API_BASE_URL}/api/quiz/submit`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -350,10 +348,12 @@
 
     // Start Pet Health Logic (healing while studying)
     healthInterval = setInterval(() => {
-      if (!document.hidden && isSessionActive) {
+      if (!document.hidden && isSessionActive && !petDies && petHealth < 100) {
         petHealth = Math.min(100, petHealth + 1);
       }
     }, 5000);
+
+    startFocusTimer(); // Start the 30-second focus timer
 
     // Add distraction listeners
     if (typeof window !== "undefined") {
@@ -362,143 +362,286 @@
     }
   }
 
+  function startFocusTimer() {
+    if (focusTimer) clearTimeout(focusTimer); // Clear any existing timer
+    focusTimer = setTimeout(() => {
+      if (!document.hidden && isSessionActive && !petDies) {
+        distractionCount = 0;
+        petHealth = 100;
+        petDies = false;
+        console.log("Sustained focus for 30 seconds: Pet fully revived!");
+      }
+    }, 30000); // 30 seconds
+  }
+
   function handleVisibilityChange() {
-    if (document.hidden && isSessionActive) {
+    if (document.hidden && isSessionActive && !petDies) {
       punishDistraction();
+    } else if (!document.hidden && isSessionActive && !petDies) {
+      startFocusTimer(); // Restart timer if tab becomes visible and not dead
     }
   }
 
   function handleBlur() {
-    if (isSessionActive) {
+    if (isSessionActive && !petDies) {
       punishDistraction();
+    } else if (isSessionActive && !petDies) {
+      startFocusTimer(); // Restart timer if window gains focus and not dead
     }
   }
 
   function punishDistraction() {
     distractionCount++;
-    console.log("Distraction detected", distractionCount);
+    console.log("Distraction detected:", distractionCount);
 
-    petHealth = Math.max(0, petHealth - 35); // Reduce health significantly
-
-    if (distractionCount >= 3) { // Pet "dies" after 3 distractions
-      petHealth = 0;
+    if (focusTimer) clearTimeout(focusTimer); // Clear previous sustained focus timer
+    if (!petDies) { // Only restart if pet is not dead
+      startFocusTimer(); // Restart timer for next 30 seconds focus
     }
 
-    if (petHealth === 0) {
-      isSessionActive = false;
-      clearInterval(healthInterval);
-      // Optionally, show a "Game Over" screen or similar
+    if (distractionCount === 1) {
+      petHealth = Math.max(0, petHealth - 40);
+    } else if (distractionCount === 2) {
+      petHealth = Math.max(0, petHealth - 40);
+    } else if (distractionCount >= 3) {
+      petHealth = 0;
+      petDies = true;
+      isSessionActive = false; // Session ends when pet dies
+      if (healthInterval) clearInterval(healthInterval); // Stop health gain
+      if (focusTimer) clearTimeout(focusTimer); // Clear focus timer on death
     }
   }
 
   function generateLearningContent(learnerType, topic) {
     let content = "";
-    // No need for lowerCaseTopic if we just use the original topic for display
-    // const lowerCaseTopic = topic.toLowerCase();
+    // Sanitize topic for display and dynamic content creation
+    const displayTopic = topic.length > 30 ? topic.substring(0, 27) + "..." : topic;
 
     switch (learnerType.type) {
       case "visual":
         content = `
           <div class="card resource-card">
-            <h3>Visual Summary: ${topic}</h3>
-            <p>Here's a visual breakdown to help you grasp ${topic}:</p>
+            <h3>Visual Summary: ${displayTopic}</h3>
+            <p>Here's a visual breakdown to help you grasp <strong>${displayTopic}</strong>:</p>
+
             <h4>Flow Diagram:</h4>
-            <pre>
-              Topic (${topic})
-                ↓
-              Subtopic 1: Key Idea A
-                ↓
-              Subtopic 2: Key Idea B
-                ↓
-              Application/Example
+            <pre class="code-block">
+  ┌─────────────────┐
+  │  Main Topic: ${displayTopic}   │
+  └─────────┬───────┘
+            │
+  ┌─────────▼─────────┐
+  │   Concept A (Key) │
+  └─────────┬─────────┘
+            │
+            │  Relates to
+            │  (via X)
+            ▼
+  ┌─────────▼─────────┐
+  │   Concept B (Sub) │
+  └─────────┬─────────┘
+            │
+            │  Leads to
+            │  (result in Y)
+            ▼
+  ┌─────────▼─────────┐
+  │   Application Z   │
+  └─────────────────┘
             </pre>
-            <h4>Key Visual Anchors:</h4>
-            <ul>
-              <li>Remember the "Tree Analogy" for ${topic}'s structure.</li>
-              <li>Visualize the "Gear Mechanism" for how its components interact.</li>
+
+            <h4>Step-by-Step Diagram:</h4>
+            <ol class="step-diagram">
+              <li><strong>Step 1: Understand the Basics</strong>
+                <p>Start by identifying the core definitions and principles of ${displayTopic}.</p>
+                <img src="https://via.placeholder.com/150/FFC0CB/000000?text=Basic+Concept" alt="Basic Concept Illustration" class="concept-image">
+              </li>
+              <li><strong>Step 2: Explore Connections</strong>
+                <p>Map out how different sub-topics within ${displayTopic} interrelate.</p>
+                <img src="https://via.placeholder.com/150/ADD8E6/000000?text=Connections+Map" alt="Connections Map Illustration" class="concept-image">
+              </li>
+              <li><strong>Step 3: Practical Application</strong>
+                <p>See how ${displayTopic} is applied in real-world scenarios or problems.</p>
+                <img src="https://via.placeholder.com/150/90EE90/000000?text=Application+Diagram" alt="Application Diagram Illustration" class="concept-image">
+              </li>
+            </ol>
+
+            <h4>Concept Mapping Structure:</h4>
+            <p>Imagine a central idea branching out. For ${displayTopic}:</p>
+            <ul class="concept-map-list">
+              <li><strong>Central Idea:</strong> ${displayTopic}
+                <ul>
+                  <li><strong>Branch 1 (Foundation):</strong> Key Theories
+                    <ul>
+                      <li>Sub-point 1.1: Definition X</li>
+                      <li>Sub-point 1.2: Principle Y</li>
+                    </ul>
+                  </li>
+                  <li><strong>Branch 2 (Components):</strong> Core Elements
+                    <ul>
+                      <li>Sub-point 2.1: Element A</li>
+                      <li>Sub-point 2.2: Element B</li>
+                    </ul>
+                  </li>
+                  <li><strong>Branch 3 (Outcome):</strong> Impact & Use Cases
+                    <ul>
+                      <li>Sub-point 3.1: Effect P</li>
+                      <li>Sub-point 3.2: Scenario Q</li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
             </ul>
-            <p>Imagine these concepts as interconnected images!</p>
+            <p>Focus on creating mental images or actual sketches!</p>
           </div>
         `;
         break;
       case "audio":
         content = `
           <div class="card resource-card">
-            <h3>Podcast Script: Understanding ${topic}</h3>
-            <p>Imagine I’m explaining this to you:</p>
-            <p>"Hey there, future expert! Let's chat about ${topic}. Think of it like this: If you were to tell a friend about ${topic}, you'd probably start with..."</p>
-            <h4>Quick Recap:</h4>
+            <h3>🎧 Podcast Script: Unpacking ${displayTopic}</h3>
+            <p class="conversational-intro">
+              "Welcome to 'MindFlow Insights,' your auditory guide to mastering new concepts.
+              Today, we're diving deep into <strong>${displayTopic}</strong>.
+              Imagine you're having a coffee with an expert who's about to demystify this for you..."
+            </p>
+
+            <h4>Main Segment: Conversational Explanation</h4>
+            <p>
+              "So, let's start with the big picture. What *is* ${displayTopic}?
+              At its heart, it's about [explain core concept in simple, engaging terms].
+              Think of it like [analogy]. If that's the foundation, then [sub-concept] is like [another analogy].
+              It’s less about memorizing facts and more about understanding the rhythm and flow of these ideas.
+              The most common question people ask is, 'How does X relate to Y?' Well, the connection is [explain connection]."
+            </p>
+            <p>
+              "When you hear people talk about ${displayTopic}, they often bring up [common term].
+              But what they really mean is [clarify misunderstanding]. It's a subtle distinction, but crucial."
+            </p>
+
+            <h4>Quick Recap (Audio Bites):</h4>
             <ul>
-              <li>Verbal overview of ${topic}</li>
-              <li>Key terms pronounced and explained</li>
+              <li><strong>Key Idea 1:</strong> ${displayTopic} as [brief verbal summary].</li>
+              <li><strong>Core Principle:</strong> Remember [main principle] – it’s the beat of the topic.</li>
+              <li><strong>Actionable Insight:</strong> How to apply [specific part] in conversation.</li>
             </ul>
-            <h4>Discussion Prompts:</h4>
-            <ul>
-              <li>How would you explain ${topic} in your own words?</li>
-              <li>What questions do you have about ${topic}?</li>
+
+            <h4>Reflection Questions (Think & Speak):</h4>
+            <ul class="reflection-questions">
+              <li>How would you explain <strong>${displayTopic}</strong> to a friend who knows nothing about it?</li>
+              <li>What part of <strong>${displayTopic}</strong> resonated most with you, and why?</li>
+              <li>Can you think of a real-world scenario where you've experienced an aspect of <strong>${displayTopic}</strong>, even unknowingly?</li>
+              <li>What's one question you still have after this explanation?</li>
             </ul>
-            <p>Listen, repeat, and discuss!</p>
+            <p class="call-to-action">
+              Try vocalizing your answers or discussing them with someone!
+            </p>
           </div>
         `;
         break;
       case "read":
         content = `
           <div class="card resource-card">
-            <h3>Detailed Notes: ${topic}</h3>
-            <h4>Definition:</h4>
-            <p>${topic} refers to [insert formal definition here, e.g., 'a fundamental concept in X discipline, characterized by Y and Z'].</p>
-            <h4>Core Principles:</h4>
+            <h3>📚 Detailed Notes: Mastering ${displayTopic}</h3>
+            <p>A comprehensive written guide designed for in-depth understanding and retention.</p>
+
+            <h4>1. Introduction to ${displayTopic}</h4>
+            <p><strong>Definition:</strong> ${displayTopic} can be formally defined as [insert precise definition here, referencing key terms]. It represents [brief overview of its significance or function].</p>
+            <p><strong>Context:</strong> This concept is typically encountered in [field/domain] and is fundamental to understanding [broader subject].</p>
+
+            <h4>2. Core Principles & Components</h4>
             <ul>
-              <li>Principle 1: [Elaborate on principle]</li>
-              <li>Principle 2: [Elaborate on principle]</li>
-              <li>Principle 3: [Elaborate on principle]</li>
+              <li><strong>Principle Alpha:</strong> [Detailed explanation of Principle Alpha, including its origin and implications].
+                <ul>
+                  <li><em>Sub-point:</em> How Principle Alpha interacts with [related concept].</li>
+                  <li><em>Example:</em> An illustration of Principle Alpha in action [provide a concise example].</li>
+                </ul>
+              </li>
+              <li><strong>Principle Beta:</strong> [Detailed explanation of Principle Beta, focusing on its mechanism and purpose].
+                <ul>
+                  <li><em>Sub-point:</em> Common misconceptions regarding Principle Beta.</li>
+                  <li><em>Application:</em> Where Principle Beta is most effectively utilized.</li>
+                </ul>
+              </li>
             </ul>
-            <h4>Detailed Notes:</h4>
-            <p>Explore the nuances and intricate details of ${topic}. Understand its origins, evolution, and theoretical underpinnings. Pay attention to sub-sections like 'Historical Context,' 'Major Theories,' and 'Practical Implications.'</p>
-            <h4>Summary:</h4>
-            <p>In essence, ${topic} is about [concise summary].</p>
+
+            <h4>3. Key Definitions:</h4>
+            <dl class="definitions-list">
+              <dt>Term 1:</dt>
+              <dd>[Clear and concise definition of Term 1].</dd>
+              <dt>Term 2:</dt>
+              <dd>[Clear and concise definition of Term 2].</dd>
+              <dt>Term 3:</dt>
+              <dd>[Clear and concise definition of Term 3].</dd>
+            </dl>
+
+            <h4>4. Bullet Breakdown: Key Takeaways</h4>
+            <ul>
+              <li>${displayTopic} is essential for [reason 1].</li>
+              <li>It operates on the basis of [mechanism/theory].</li>
+              <li>Distinguish between [common confusion 1] and [common confusion 2].</li>
+              <li>Remember the three primary applications: [App 1], [App 2], and [App 3].</li>
+            </ul>
+
+            <h4>5. Summary</h4>
+            <p>In summary, <strong>${displayTopic}</strong> is a pivotal concept in [field], characterized by [key features]. Its mastery requires understanding its core principles, precise definitions, and practical applications in [context]. Effective engagement with this material will solidify your comprehension.</p>
+            <p class="call-to-action">
+              Read these notes carefully, highlight key sections, and try to summarize each section in your own words!
+            </p>
           </div>
         `;
         break;
       case "active":
         content = `
           <div class="card resource-card">
-            <h3>Active Learning Challenges: ${topic}</h3>
-            <h4>Mini Challenge:</h4>
-            <p>Try to sketch the main components of ${topic} from memory. How do they connect?</p>
-            <h4>Practice Task:</h4>
-            <p>Given a scenario where [related problem], apply the principles of ${topic} to find a solution. Document your steps!</p>
-          `;
-          // Placeholder for real questions/tasks
-          content += `
-            <div class="quiz-card card">
-              <h4>Quick Check: ${topic}</h4>
-              <p>Test your knowledge with these generated questions.</p>
-              <button class="cta-btn" style="margin-top: 1rem; font-size: 1rem;"
-                >Start Practice Quiz</button>
-            </div>
-            <div class="card" style="margin-top: 1rem;">
-              <h4>Hands-on Task</h4>
-              <p>
-                Try to implement or build a model regarding ${topic} using the
-                provided diagram (diagram not shown, placeholder).
-              </p>
-            </div>
-          `;
-          content += `
-            <h4>Apply It Yourself:</h4>
-            <p>Think of a real-world example where ${topic} is demonstrated. Can you explain it?</p>
-            <h4>Quick Self-Test:</h4>
-            <ul>
-              <li>What is the primary function of ${topic}?</li>
-              <li>Describe a situation where ${topic} would be crucial.</li>
-            </ul>
-            <p>Learn by doing, experimenting, and applying!</p>
+            <h3>🤸 Active Learning Challenges: Engage with ${displayTopic}</h3>
+            <p>Put your knowledge into action with these interactive tasks and exercises!</p>
+
+            <h4>Mini-Exercise: Diagram Completion</h4>
+            <p><strong>Task:</strong> On a piece of paper, draw a simple diagram illustrating the main components or stages of <strong>${displayTopic}</strong>. Don't look at your notes!</p>
+            <details>
+              <summary>Click to reveal key components (after your attempt!)</summary>
+              <p><em>(Hint: Consider the flow, inputs, and outputs of the topic.)</em></p>
+              <ul>
+                <li>Component 1: [Placeholder]</li>
+                <li>Component 2: [Placeholder]</li>
+                <li>Component 3: [Placeholder]</li>
+              </ul>
+            </details>
+
+            <h4>Scenario-Based Task: Problem Solver</h4>
+            <p><strong>Scenario:</strong> You are [role] facing [problem] related to <strong>${displayTopic}</strong>. Describe the steps you would take to address this situation using your understanding of the topic.</p>
+            <details>
+              <summary>Brainstorming Prompts (Click to reveal)</summary>
+              <p>Consider:</p>
+              <ul>
+                <li>What data would you need?</li>
+                <li>Which principles of ${displayTopic} apply directly?</li>
+                <li>What are the potential pitfalls, and how would you mitigate them?</li>
+              </ul>
+            </details>
+
+            <h4>Interactive Challenge: Quick Quiz</h4>
+            <p>Answer these questions without consulting your notes. Be honest with yourself!</p>
+            <ol>
+              <li>What is the primary function of [a key term in ${displayTopic}]?</li>
+              <li>Describe a situation where an understanding of <strong>${displayTopic}</strong> is critical.</li>
+              <li>If [condition], what outcome would you expect based on <strong>${displayTopic}</strong>?</li>
+            </ol>
+            <details>
+              <summary>Self-Check Answers (Click to reveal)</summary>
+              <p><em>(Provide concise answers here for self-assessment)</em></p>
+            </details>
+
+            <h4>"Try This Now" Activity: Live Experiment / Observation</h4>
+            <p><strong>Activity:</strong> Find a real-world example of <strong>${displayTopic}</strong> around you (e.g., observe a system, a process, a conversation). Spend 5 minutes analyzing it through the lens of what you've learned.</p>
+            <p class="call-to-action">
+              The best way to learn is by doing! Actively engage with these prompts.
+            </p>
           </div>
         `;
         break;
       default:
-        content = `<div class="card resource-card"><h3>General Study Guide: ${topic}</h3><p>A comprehensive overview for your study session on ${topic}.</p></div>`;
+        content = `<div class="card resource-card"><h3>General Study Guide: ${displayTopic}</h3><p>A comprehensive overview for your study session on ${displayTopic}.</p></div>`;
     }
     return content;
   }
@@ -508,6 +651,7 @@
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleBlur);
       clearInterval(healthInterval);
+      clearInterval(focusTimer); // Clear focus timer on destroy
     }
   });
 </script>
@@ -797,6 +941,17 @@
                 </div>
               {/if}
             </div>
+          </div>
+
+          <div class="field-group">
+            <label for="search-query">Learning Topic (Optional)</label>
+            <input
+              type="text"
+              id="search-query"
+              bind:value={searchQuery}
+              placeholder="e.g. Quantum Physics, Impressionist Art"
+              class="text-input"
+            />
           </div>
 
           <!-- Notes/Comment Section -->
