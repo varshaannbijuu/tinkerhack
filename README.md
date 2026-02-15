@@ -117,16 +117,16 @@ npm run dev
 
 ### Screenshots
 
-### Learning Style Quiz
+### Login / Signup
 ![Quiz](Screenshot%202026-02-15%20095612.png)
 
-### Pet Adoption Screen
+### Quiz Results
 ![Pet](Screenshot%202026-02-15%20095654.png)
 
-### Study Session
+### Pet Adoption
 ![Session](Screenshot%202026-02-15%20095722.png)
 
-### Focus Tracking
+### Upload Files
 ![Focus](Screenshot%202026-02-15%20095736.png)
 
 ### Personalized Content
